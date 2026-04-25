@@ -7,3 +7,6 @@ mod command;
 mod error;
 mod protocol;
 mod response;
+
+#[cfg(test)]
+mod tests;
