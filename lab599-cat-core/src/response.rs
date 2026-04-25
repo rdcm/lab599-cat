@@ -215,7 +215,9 @@ impl Response {
 
             "BY" => {
                 let b = params.as_bytes();
-                Ok(Response::By { busy: b.first().copied() == Some(b'1') })
+                Ok(Response::By {
+                    busy: b.first().copied() == Some(b'1'),
+                })
             }
 
             "CG" => Ok(Response::Cg(parse_u8(params, "CG")?)),
@@ -381,7 +383,10 @@ fn digit(b: u8, cmd: &str) -> Result<u8, CatError> {
     if b.is_ascii_digit() {
         Ok(b - b'0')
     } else {
-        Err(CatError::ParseError(format!("{cmd}: expected digit, got '{}'", b as char)))
+        Err(CatError::ParseError(format!(
+            "{cmd}: expected digit, got '{}'",
+            b as char
+        )))
     }
 }
 
@@ -394,21 +399,15 @@ fn parse_bool(s: &str, cmd: &str) -> Result<bool, CatError> {
 }
 
 fn parse_u8(s: &str, cmd: &str) -> Result<u8, CatError> {
-    s.trim()
-        .parse::<u8>()
-        .map_err(|_| parse_err(cmd, s))
+    s.trim().parse::<u8>().map_err(|_| parse_err(cmd, s))
 }
 
 fn parse_u16(s: &str, cmd: &str) -> Result<u16, CatError> {
-    s.trim()
-        .parse::<u16>()
-        .map_err(|_| parse_err(cmd, s))
+    s.trim().parse::<u16>().map_err(|_| parse_err(cmd, s))
 }
 
 fn parse_u64(s: &str, cmd: &str) -> Result<u64, CatError> {
-    s.trim()
-        .parse::<u64>()
-        .map_err(|_| parse_err(cmd, s))
+    s.trim().parse::<u64>().map_err(|_| parse_err(cmd, s))
 }
 
 /// Parse IF answer parameters (everything after "IF").
@@ -417,29 +416,38 @@ fn parse_u64(s: &str, cmd: &str) -> Result<u64, CatError> {
 ///         {1 vfo}{1 scan}{1 split}{1 ctcss_flag}{2 tone_freq}{1 always0}
 fn parse_if(p: &str) -> Result<IfStatus, CatError> {
     if p.len() < 35 {
-        return Err(CatError::ParseError(format!("IF: response too short ({} chars)", p.len())));
+        return Err(CatError::ParseError(format!(
+            "IF: response too short ({} chars)",
+            p.len()
+        )));
     }
 
-    let frequency = p[0..11].trim().parse::<u64>().map_err(|_| parse_err("IF", &p[0..11]))?;
+    let frequency = p[0..11]
+        .trim()
+        .parse::<u64>()
+        .map_err(|_| parse_err("IF", &p[0..11]))?;
 
     // bytes 11..16 are spaces (P2)
     let rit_str = p[16..21].trim();
     let rit_xit_freq = rit_str.parse::<i32>().unwrap_or(0);
 
     let b = p.as_bytes();
-    let rit_on  = b[21] == b'1';
-    let xit_on  = b[22] == b'1';
+    let rit_on = b[21] == b'1';
+    let xit_on = b[22] == b'1';
 
-    let memory_channel = p[23..25].trim().parse::<u8>().map_err(|_| parse_err("IF", &p[23..25]))?;
+    let memory_channel = p[23..25]
+        .trim()
+        .parse::<u8>()
+        .map_err(|_| parse_err("IF", &p[23..25]))?;
 
-    let tx   = b[25] == b'1';
+    let tx = b[25] == b'1';
     let mode_v = digit(b[26], "IF")?;
     let mode = Mode::from_u8(mode_v).ok_or_else(|| parse_err("IF", &p[26..27]))?;
 
     let vfo_v = digit(b[27], "IF")?;
     let vfo_func = VfoSelect::from_u8(vfo_v).ok_or_else(|| parse_err("IF", &p[27..28]))?;
 
-    let scan  = b[28] == b'1';
+    let scan = b[28] == b'1';
     let split = b[29] == b'1';
 
     let ctcss_flag = b[30];
@@ -472,15 +480,29 @@ fn parse_mr(p: &str) -> Result<MemoryData, CatError> {
     // P1,P2 (always 0), P3 (channel 2 digits), P4 (11 digits freq), P5 (mode), P6 (preamp_att)
     // layout: 00 + CH(2) + FREQ(11) + MODE(1) + PA(1) + ...
     if p.len() < 17 {
-        return Err(CatError::ParseError(format!("MR: response too short ({} chars)", p.len())));
+        return Err(CatError::ParseError(format!(
+            "MR: response too short ({} chars)",
+            p.len()
+        )));
     }
-    let channel   = p[2..4].trim().parse::<u8>().map_err(|_| parse_err("MR", &p[2..4]))?;
-    let frequency = p[4..15].trim().parse::<u64>().map_err(|_| parse_err("MR", &p[4..15]))?;
-    let mode_v    = digit(p.as_bytes()[15], "MR")?;
-    let mode      = Mode::from_u8(mode_v).ok_or_else(|| parse_err("MR", &p[15..16]))?;
+    let channel = p[2..4]
+        .trim()
+        .parse::<u8>()
+        .map_err(|_| parse_err("MR", &p[2..4]))?;
+    let frequency = p[4..15]
+        .trim()
+        .parse::<u64>()
+        .map_err(|_| parse_err("MR", &p[4..15]))?;
+    let mode_v = digit(p.as_bytes()[15], "MR")?;
+    let mode = Mode::from_u8(mode_v).ok_or_else(|| parse_err("MR", &p[15..16]))?;
     let preamp_att = digit(p.as_bytes()[16], "MR")?;
 
-    Ok(MemoryData { channel, frequency, mode, preamp_att })
+    Ok(MemoryData {
+        channel,
+        frequency,
+        mode,
+        preamp_att,
+    })
 }
 
 /// Parse TM (time) parameters: "HH:MM:SS"
@@ -490,8 +512,12 @@ fn parse_tm(p: &str) -> Result<Response, CatError> {
     if parts.len() != 3 {
         return Err(parse_err("TM", p));
     }
-    let hour   = parts[0].parse::<u8>().map_err(|_| parse_err("TM", p))?;
+    let hour = parts[0].parse::<u8>().map_err(|_| parse_err("TM", p))?;
     let minute = parts[1].parse::<u8>().map_err(|_| parse_err("TM", p))?;
     let second = parts[2].parse::<u8>().map_err(|_| parse_err("TM", p))?;
-    Ok(Response::Tm { hour, minute, second })
+    Ok(Response::Tm {
+        hour,
+        minute,
+        second,
+    })
 }

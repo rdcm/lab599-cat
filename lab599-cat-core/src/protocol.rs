@@ -5,7 +5,10 @@ pub struct Protocol;
 impl Protocol {
     pub fn encode(cmd: &Command) -> String {
         match cmd {
-            Command::AcSet { at_on, start_tuning } => {
+            Command::AcSet {
+                at_on,
+                start_tuning,
+            } => {
                 format!("AC0{}{};", flag(*at_on), flag(*start_tuning))
             }
             Command::AcRead => "AC;".into(),
@@ -141,7 +144,11 @@ impl Protocol {
             Command::SqSet(v) => format!("SQ0{v:03};"),
             Command::SqRead => "SQ0;".into(),
 
-            Command::TmSet { hour, minute, second } => {
+            Command::TmSet {
+                hour,
+                minute,
+                second,
+            } => {
                 format!("TM{hour:02}:{minute:02}:{second:02};")
             }
             Command::TmRead => "TM;".into(),
@@ -180,7 +187,11 @@ impl Protocol {
 }
 
 fn flag(v: bool) -> u8 {
-    if v { 1 } else { 0 }
+    if v {
+        1
+    } else {
+        0
+    }
 }
 
 fn encode_mw(d: &MemoryData) -> String {
@@ -188,9 +199,6 @@ fn encode_mw(d: &MemoryData) -> String {
     // Trailing fixed fields: P7=0, P8P9=00, P10=000, P11P12=00, P13P14P15=000, P16=space
     format!(
         "MW00{:02}{:011}{}{}0000000000000000000000000000000 ;",
-        d.channel,
-        d.frequency,
-        d.mode as u8,
-        d.preamp_att,
+        d.channel, d.frequency, d.mode as u8, d.preamp_att,
     )
 }

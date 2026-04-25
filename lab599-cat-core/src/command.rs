@@ -77,7 +77,10 @@ impl MeterType {
 pub enum Command {
     // ── AC — Antenna tuner (TX500MP) ─────────────────────────────────────
     /// Set: at_on, start_tuning
-    AcSet { at_on: bool, start_tuning: bool },
+    AcSet {
+        at_on: bool,
+        start_tuning: bool,
+    },
     AcRead,
 
     // ── AG — AF gain ──────────────────────────────────────────────────────
@@ -122,7 +125,10 @@ pub enum Command {
 
     // ── FL — Current filter (Lab599) ──────────────────────────────────────
     /// Set: rx_filter (0–3), tx_filter (0–1)
-    FlSet { rx: u8, tx: u8 },
+    FlSet {
+        rx: u8,
+        tx: u8,
+    },
     FlRead,
 
     // ── FR — VFO/Memory select (RX) ───────────────────────────────────────
@@ -281,7 +287,11 @@ pub enum Command {
     SqRead,
 
     // ── TM — Time ─────────────────────────────────────────────────────────
-    TmSet { hour: u8, minute: u8, second: u8 },
+    TmSet {
+        hour: u8,
+        minute: u8,
+        second: u8,
+    },
     TmRead,
 
     // ── TO — Tone status ──────────────────────────────────────────────────

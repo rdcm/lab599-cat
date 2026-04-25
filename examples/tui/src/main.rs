@@ -95,7 +95,7 @@ impl RadioState {
 }
 
 fn open_port(path: &str, baud: u32) -> Result<Box<dyn SerialPort>> {
-    let mut port = serialport::new(path, baud)
+    let port = serialport::new(path, baud)
         .timeout(Duration::from_millis(2000))
         .open()
         .with_context(|| format!("Cannot open serial port {path}"))?;
@@ -203,11 +203,11 @@ fn draw(frame: &mut Frame, state: &RadioState) {
         .direction(Direction::Vertical)
         .margin(1)
         .constraints([
-            Constraint::Length(5),  // frequency + mode
-            Constraint::Length(3),  // S-meter
-            Constraint::Length(3),  // status flags
-            Constraint::Length(6),  // help
-            Constraint::Min(3),     // error log
+            Constraint::Length(5), // frequency + mode
+            Constraint::Length(3), // S-meter
+            Constraint::Length(3), // status flags
+            Constraint::Length(6), // help
+            Constraint::Min(3),    // error log
         ])
         .split(area);
 
@@ -233,15 +233,14 @@ fn draw(frame: &mut Frame, state: &RadioState) {
             Span::raw("  Mode:  "),
             Span::styled(
                 state.mode_str(),
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::from(vec![
             Span::raw("  PTT:   "),
-            Span::styled(
-                if state.ptt { "TX" } else { "RX" },
-                ptt_style,
-            ),
+            Span::styled(if state.ptt { "TX" } else { "RX" }, ptt_style),
             if state.audio_active {
                 Span::styled("  ● AUDIO", Style::default().fg(Color::Magenta))
             } else {
@@ -250,8 +249,11 @@ fn draw(frame: &mut Frame, state: &RadioState) {
         ]),
     ];
 
-    let freq_block = Paragraph::new(freq_text)
-        .block(Block::default().borders(Borders::ALL).title(" Lab599 TX-500 "));
+    let freq_block = Paragraph::new(freq_text).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Lab599 TX-500 "),
+    );
     frame.render_widget(freq_block, chunks[0]);
 
     // ── S-meter ───────────────────────────────────────────────────────────
@@ -270,20 +272,17 @@ fn draw(frame: &mut Frame, state: &RadioState) {
     frame.render_widget(gauge, chunks[1]);
 
     // ── Status flags ──────────────────────────────────────────────────────
-    let flags: Vec<ListItem> = vec![
-        format!(
-            " Pre-amp: {}   Attenuator: {}   Split: {}",
-            if state.preamp { "ON " } else { "off" },
-            if state.attenuator { "ON " } else { "off" },
-            if state.split { "ON " } else { "off" },
-        ),
-    ]
+    let flags: Vec<ListItem> = vec![format!(
+        " Pre-amp: {}   Attenuator: {}   Split: {}",
+        if state.preamp { "ON " } else { "off" },
+        if state.attenuator { "ON " } else { "off" },
+        if state.split { "ON " } else { "off" },
+    )]
     .into_iter()
-    .map(|s| ListItem::new(s))
+    .map(ListItem::new)
     .collect();
 
-    let status = List::new(flags)
-        .block(Block::default().borders(Borders::ALL).title(" Status "));
+    let status = List::new(flags).block(Block::default().borders(Borders::ALL).title(" Status "));
     frame.render_widget(status, chunks[2]);
 
     // ── Help ──────────────────────────────────────────────────────────────
@@ -294,13 +293,16 @@ fn draw(frame: &mut Frame, state: &RadioState) {
         Line::from(" q / Ctrl+C : quit"),
     ];
 
-    let help = Paragraph::new(help_lines)
-        .block(Block::default().borders(Borders::ALL).title(" Keys "));
+    let help =
+        Paragraph::new(help_lines).block(Block::default().borders(Borders::ALL).title(" Keys "));
     frame.render_widget(help, chunks[3]);
 
     // ── Error log ─────────────────────────────────────────────────────────
     let err_items: Vec<ListItem> = if state.errors.is_empty() {
-        vec![ListItem::new(Span::styled(" (no errors)", Style::default().fg(Color::DarkGray)))]
+        vec![ListItem::new(Span::styled(
+            " (no errors)",
+            Style::default().fg(Color::DarkGray),
+        ))]
     } else {
         state
             .errors
@@ -317,8 +319,8 @@ fn draw(frame: &mut Frame, state: &RadioState) {
             .collect()
     };
 
-    let err_log = List::new(err_items)
-        .block(Block::default().borders(Borders::ALL).title(" Error Log "));
+    let err_log =
+        List::new(err_items).block(Block::default().borders(Borders::ALL).title(" Error Log "));
     frame.render_widget(err_log, chunks[4]);
 }
 
@@ -351,7 +353,7 @@ fn run(args: &Args) -> Result<()> {
     let _audio_stream = args
         .audio
         .as_deref()
-        .and_then(|pat| find_audio_device(pat))
+        .and_then(find_audio_device)
         .and_then(|d| start_audio(d).ok());
 
     let mut state = RadioState {
@@ -373,8 +375,7 @@ fn run(args: &Args) -> Result<()> {
         if event::poll(Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
                 match (key.code, key.modifiers) {
-                    (KeyCode::Char('q'), _)
-                    | (KeyCode::Char('c'), KeyModifiers::CONTROL) => break,
+                    (KeyCode::Char('q'), _) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => break,
 
                     (KeyCode::Up, _) => {
                         let f = state.frequency.saturating_add(10);

@@ -1,4 +1,4 @@
 [workspace]
-members = ["lab599-cat-core", "lab599-cat-device", "examples/tui"]
+members = ["examples/tui", "lab599-cat-core", "lab599-cat-device"]
 
 resolver = "2"

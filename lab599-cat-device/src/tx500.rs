@@ -49,8 +49,7 @@ impl<T: std::io::Read + std::io::Write> Tx500<T> {
                 Err(e) => return Err(CatError::DeviceError(e.to_string())),
             }
         }
-        let s = std::str::from_utf8(&buf)
-            .map_err(|e| CatError::DeviceError(e.to_string()))?;
+        let s = std::str::from_utf8(&buf).map_err(|e| CatError::DeviceError(e.to_string()))?;
         Protocol::decode(s)
     }
 
@@ -542,7 +541,10 @@ impl<T: std::io::Read + std::io::Write> Tx500<T> {
     /// Set antenna tuner state (TX500MP only).
     #[cfg(feature = "tx500mp")]
     pub fn set_antenna_tuner(&mut self, at_on: bool, start_tuning: bool) -> Result<(), CatError> {
-        self.send(&Command::AcSet { at_on, start_tuning })
+        self.send(&Command::AcSet {
+            at_on,
+            start_tuning,
+        })
     }
 
     /// Read antenna tuner state (TX500MP only).
@@ -584,11 +586,17 @@ mod tests {
 
     impl MockIo {
         fn with_response(data: &[u8]) -> Self {
-            MockIo { rx: std::io::Cursor::new(data.to_vec()), tx: Vec::new() }
+            MockIo {
+                rx: std::io::Cursor::new(data.to_vec()),
+                tx: Vec::new(),
+            }
         }
 
         fn write_only() -> Self {
-            MockIo { rx: std::io::Cursor::new(vec![]), tx: Vec::new() }
+            MockIo {
+                rx: std::io::Cursor::new(vec![]),
+                tx: Vec::new(),
+            }
         }
     }
 
@@ -602,7 +610,9 @@ mod tests {
         fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
             self.tx.write(buf)
         }
-        fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
     }
 
     #[test]
