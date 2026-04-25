@@ -1,4 +1,4 @@
-
+ > **WIP** — work in progress, API is unstable
 
 # lab599-cat
 
