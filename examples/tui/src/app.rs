@@ -29,7 +29,7 @@ pub fn run(args: &Args) -> Result<()> {
     let _audio = args
         .audio
         .as_deref()
-        .and_then(|pat| find_audio_device(pat))
+        .and_then(find_audio_device)
         .and_then(|d| start_audio(d).ok());
 
     let mut state = RadioState {
@@ -90,7 +90,11 @@ pub fn run(args: &Args) -> Result<()> {
 
                     (KeyCode::Char('t'), _) => {
                         let next = !state.ptt;
-                        let result = if next { device.set_tx() } else { device.set_rx() };
+                        let result = if next {
+                            device.set_tx()
+                        } else {
+                            device.set_rx()
+                        };
                         match result {
                             Ok(()) => state.ptt = next,
                             Err(e) => state.log_error(format!("PT: {e}")),

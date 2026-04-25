@@ -59,8 +59,7 @@ pub fn start_audio(input_device: cpal::Device) -> Result<AudioLoopback> {
         SampleFormat::I16 => input_device.build_input_stream(
             &in_cfg.into(),
             move |data: &[i16], _| {
-                let f: Vec<f32> =
-                    data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
+                let f: Vec<f32> = data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
                 push_mono(&f, in_channels, &buf_in);
             },
             err_fn,
@@ -96,7 +95,10 @@ pub fn start_audio(input_device: cpal::Device) -> Result<AudioLoopback> {
     input_stream.play()?;
     output_stream.play()?;
 
-    Ok(AudioLoopback { _input: input_stream, _output: output_stream })
+    Ok(AudioLoopback {
+        _input: input_stream,
+        _output: output_stream,
+    })
 }
 
 fn push_mono(data: &[f32], channels: usize, buf: &Mutex<VecDeque<f32>>) {

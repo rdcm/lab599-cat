@@ -38,12 +38,17 @@ fn render_radio_info(frame: &mut Frame, state: &RadioState, area: Rect) {
         Span::raw("  VFO A: "),
         Span::styled(
             state.freq_display(),
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
         ),
         Span::raw(" MHz"),
     ];
     if state.audio_active {
-        freq_spans.push(Span::styled("  ● AUDIO", Style::default().fg(Color::Magenta)));
+        freq_spans.push(Span::styled(
+            "  ● AUDIO",
+            Style::default().fg(Color::Magenta),
+        ));
     }
 
     let text = vec![
@@ -52,7 +57,9 @@ fn render_radio_info(frame: &mut Frame, state: &RadioState, area: Rect) {
             Span::raw("  Mode:   "),
             Span::styled(
                 state.mode_str(),
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::from(vec![
@@ -70,16 +77,25 @@ fn render_radio_info(frame: &mut Frame, state: &RadioState, area: Rect) {
     ];
 
     frame.render_widget(
-        Paragraph::new(text)
-            .block(Block::default().borders(Borders::ALL).title(" Lab599 TX-500 ")),
+        Paragraph::new(text).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Lab599 TX-500 "),
+        ),
         area,
     );
 }
 
 // Tick marks: (display label, SM value 0-30)
 const SMETER_TICKS: &[(&str, usize)] = &[
-    ("1", 3), ("3", 6), ("5", 9), ("7", 12),
-    ("9", 15), ("+20", 20), ("+40", 25), ("+60", 30),
+    ("1", 3),
+    ("3", 6),
+    ("5", 9),
+    ("7", 12),
+    ("9", 15),
+    ("+20", 20),
+    ("+40", 25),
+    ("+60", 30),
 ];
 
 fn render_smeter(frame: &mut Frame, state: &RadioState, area: Rect) {
@@ -114,19 +130,24 @@ fn render_smeter(frame: &mut Frame, state: &RadioState, area: Rect) {
     let label = state.smeter_label();
 
     let lines = vec![
-        Line::from(Span::styled(scale.iter().collect::<String>(), Style::default().fg(Color::DarkGray))),
+        Line::from(Span::styled(
+            scale.iter().collect::<String>(),
+            Style::default().fg(Color::DarkGray),
+        )),
         Line::from(vec![
             Span::styled("█".repeat(green_fill), Style::default().fg(Color::Green)),
             Span::styled("█".repeat(yellow_fill), Style::default().fg(Color::Yellow)),
             Span::styled("█".repeat(red_fill), Style::default().fg(Color::Red)),
             Span::styled("░".repeat(empty), Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("  {label}"), Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("  {label}"),
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
         ]),
     ];
 
     frame.render_widget(
-        Paragraph::new(lines)
-            .block(Block::default().borders(Borders::ALL).title(" S-Meter ")),
+        Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(" S-Meter ")),
         area,
     );
 }
@@ -148,8 +169,7 @@ fn render_status(frame: &mut Frame, state: &RadioState, area: Rect) {
     ]);
 
     frame.render_widget(
-        Paragraph::new(vec![line])
-            .block(Block::default().borders(Borders::ALL).title(" Status ")),
+        Paragraph::new(vec![line]).block(Block::default().borders(Borders::ALL).title(" Status ")),
         area,
     );
 }

@@ -4,11 +4,12 @@ use lab599_cat_core::Mode;
 
 pub const MAX_ERRORS: usize = 8;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
 pub enum Step {
     Hz10,
     Hz100,
     Hz500,
+    #[default]
     K1,
     K2_5,
     K5,
@@ -62,12 +63,6 @@ impl Step {
             Step::K5 => "5 kHz",
             Step::K10 => "10 kHz",
         }
-    }
-}
-
-impl Default for Step {
-    fn default() -> Self {
-        Step::K1
     }
 }
 

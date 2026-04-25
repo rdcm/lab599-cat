@@ -7,7 +7,7 @@ use serialport::SerialPort;
 use crate::state::RadioState;
 
 pub fn open_port(path: &str, baud: u32) -> Result<Box<dyn SerialPort>> {
-    let mut port = serialport::new(path, baud)
+    let port = serialport::new(path, baud)
         .timeout(Duration::from_millis(2000))
         .open()
         .with_context(|| format!("Cannot open serial port {path}"))?;
