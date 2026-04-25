@@ -1,0 +1,4 @@
+[workspace]
+members = ["lab599-cat-core", "lab599-cat-device"]
+
+resolver = "2"
