@@ -26,16 +26,5 @@ tui-list-audio:
 tui-with-audio:
 	./target/release/lab599-cat-tui --port /dev/ttyUSB0 --audio pipewire
 
-# Install system dependencies required by serialport and cpal (audio).
-# Detects Fedora/RHEL (dnf) or Debian/Ubuntu (apt).
 setup-deps:
-	@if command -v dnf >/dev/null 2>&1; then \
-		echo "Detected dnf (Fedora/RHEL)"; \
-		sudo dnf install -y systemd-devel alsa-lib-devel; \
-	elif command -v apt-get >/dev/null 2>&1; then \
-		echo "Detected apt (Debian/Ubuntu)"; \
-		sudo apt-get install -y libudev-dev libasound2-dev; \
-	else \
-		echo "Unknown package manager. Install manually: libudev-dev, libasound2-dev (or equivalent)"; \
-		exit 1; \
-	fi
+	sudo dnf install -y systemd-devel alsa-lib-devel
