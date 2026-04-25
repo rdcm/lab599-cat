@@ -477,6 +477,13 @@ impl<T: std::io::Read + std::io::Write> Tx500<T> {
         self.send(&Command::PrSet(on))
     }
 
+    pub fn get_speech_compressor(&mut self) -> Result<bool, CatError> {
+        match self.send_recv(&Command::PrRead)? {
+            Response::Pr(v) => Ok(v),
+            _ => Err(CatError::UnknownResponse("PR".into())),
+        }
+    }
+
     pub fn set_compressor_level(&mut self, level: u8) -> Result<(), CatError> {
         self.send(&Command::PlSet(level))
     }
