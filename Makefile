@@ -14,6 +14,18 @@ format:
 lint:
 	cargo clippy --release --all-targets
 
+tui-build:
+	cargo build --release -p lab599-cat-tui
+
+tui-run:
+	./target/release/lab599-cat-tui --port /dev/ttyUSB0
+
+tui-list-audio:
+	./target/release/lab599-cat-tui --list-audio
+
+tui-with-audio:
+	./target/release/lab599-cat-tui --port /dev/ttyUSB0 --audio pipewire
+
 # Install system dependencies required by serialport and cpal (audio).
 # Detects Fedora/RHEL (dnf) or Debian/Ubuntu (apt).
 setup-deps:

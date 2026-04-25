@@ -1,9 +1,4 @@
-use std::{
-    io,
-    sync::{Arc, Mutex},
-    thread,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -11,11 +6,7 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     SampleFormat,
 };
-use crossterm::{
-    event::{self, Event, KeyCode, KeyModifiers},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use lab599_cat_core::Mode;
 use lab599_cat_device::Tx500;
 use ratatui::{
@@ -23,7 +14,7 @@ use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Gauge, List, ListItem, Paragraph},
-    DefaultTerminal, Frame,
+    Frame,
 };
 use serialport::SerialPort;
 
@@ -32,15 +23,19 @@ use serialport::SerialPort;
 struct Args {
     /// Serial port for CAT control (e.g. /dev/ttyUSB0)
     #[arg(short, long)]
-    port: String,
+    port: Option<String>,
 
     /// Serial port baud rate
-    #[arg(short, long, default_value = "38400")]
+    #[arg(short, long, default_value = "9600")]
     baud: u32,
 
-    /// Audio input device name (substring match). Leave empty to list devices.
-    #[arg(short, long, default_value = "")]
-    audio: String,
+    /// Audio input device name (substring match, optional)
+    #[arg(short, long)]
+    audio: Option<String>,
+
+    /// List available audio input devices and exit
+    #[arg(long)]
+    list_audio: bool,
 
     /// Poll interval for CAT status in milliseconds
     #[arg(long, default_value = "200")]
@@ -57,7 +52,8 @@ struct RadioState {
     attenuator: bool,
     split: bool,
     audio_active: bool,
-    error: Option<String>,
+    /// Recent errors: (timestamp, message). Newest first.
+    errors: Vec<(Instant, String)>,
 }
 
 impl RadioState {
@@ -99,10 +95,20 @@ impl RadioState {
 }
 
 fn open_port(path: &str, baud: u32) -> Result<Box<dyn SerialPort>> {
-    serialport::new(path, baud)
-        .timeout(Duration::from_millis(500))
+    let mut port = serialport::new(path, baud)
+        .timeout(Duration::from_millis(2000))
         .open()
-        .with_context(|| format!("Cannot open serial port {path}"))
+        .with_context(|| format!("Cannot open serial port {path}"))?;
+
+    // Drain any stale bytes the device may have sent on connect.
+    port.clear(serialport::ClearBuffer::All)
+        .with_context(|| "Cannot clear serial port buffer")?;
+
+    // Give the device a moment to settle after DTR/RTS toggling.
+    std::thread::sleep(Duration::from_millis(200));
+    port.clear(serialport::ClearBuffer::Input)?;
+
+    Ok(port)
 }
 
 fn list_audio_devices() {
@@ -119,9 +125,6 @@ fn list_audio_devices() {
 
 fn find_audio_device(name_pattern: &str) -> Option<cpal::Device> {
     let host = cpal::default_host();
-    if name_pattern.is_empty() {
-        return host.default_input_device();
-    }
     host.input_devices().ok()?.find(|d| {
         d.name()
             .map(|n| n.to_lowercase().contains(&name_pattern.to_lowercase()))
@@ -167,19 +170,29 @@ fn start_audio(device: cpal::Device) -> Result<cpal::Stream> {
     Ok(stream)
 }
 
+const MAX_ERRORS: usize = 8;
+
+fn log_error(state: &mut RadioState, msg: String) {
+    state.errors.insert(0, (Instant::now(), msg));
+    state.errors.truncate(MAX_ERRORS);
+}
+
 fn poll_radio(device: &mut Tx500<Box<dyn SerialPort>>, state: &mut RadioState) {
     match device.get_frequency_a() {
         Ok(f) => state.frequency = f,
-        Err(e) => state.error = Some(e.to_string()),
+        Err(e) => log_error(state, format!("FA: {e}")),
     }
-    if let Ok(m) = device.get_mode() {
-        state.mode = Some(m);
+    match device.get_mode() {
+        Ok(m) => state.mode = Some(m),
+        Err(e) => log_error(state, format!("MD: {e}")),
     }
-    if let Ok(s) = device.get_smeter() {
-        state.smeter = s;
+    match device.get_smeter() {
+        Ok(s) => state.smeter = s,
+        Err(e) => log_error(state, format!("SM: {e}")),
     }
-    if let Ok(p) = device.get_ptt() {
-        state.ptt = p;
+    match device.get_ptt() {
+        Ok(p) => state.ptt = p,
+        Err(e) => log_error(state, format!("PT: {e}")),
     }
 }
 
@@ -193,7 +206,8 @@ fn draw(frame: &mut Frame, state: &RadioState) {
             Constraint::Length(5),  // frequency + mode
             Constraint::Length(3),  // S-meter
             Constraint::Length(3),  // status flags
-            Constraint::Min(4),     // help / log
+            Constraint::Length(6),  // help
+            Constraint::Min(3),     // error log
         ])
         .split(area);
 
@@ -278,19 +292,34 @@ fn draw(frame: &mut Frame, state: &RadioState) {
         Line::from(" +/- : ±1 MHz      m : cycle mode     t : toggle TX"),
         Line::from(" p : toggle pre-amp    a : toggle att    s : toggle split"),
         Line::from(" q / Ctrl+C : quit"),
-        if let Some(err) = &state.error {
-            Line::from(Span::styled(
-                format!(" ERR: {err}"),
-                Style::default().fg(Color::Red),
-            ))
-        } else {
-            Line::from("")
-        },
     ];
 
     let help = Paragraph::new(help_lines)
         .block(Block::default().borders(Borders::ALL).title(" Keys "));
     frame.render_widget(help, chunks[3]);
+
+    // ── Error log ─────────────────────────────────────────────────────────
+    let err_items: Vec<ListItem> = if state.errors.is_empty() {
+        vec![ListItem::new(Span::styled(" (no errors)", Style::default().fg(Color::DarkGray)))]
+    } else {
+        state
+            .errors
+            .iter()
+            .map(|(ts, msg)| {
+                let secs = ts.elapsed().as_secs();
+                let label = if secs < 60 {
+                    format!(" [{secs:>3}s ago]  {msg}")
+                } else {
+                    format!(" [{:>3}m ago]  {msg}", secs / 60)
+                };
+                ListItem::new(Span::styled(label, Style::default().fg(Color::Red)))
+            })
+            .collect()
+    };
+
+    let err_log = List::new(err_items)
+        .block(Block::default().borders(Borders::ALL).title(" Error Log "));
+    frame.render_widget(err_log, chunks[4]);
 }
 
 fn cycle_mode(current: Option<Mode>) -> Mode {
@@ -306,19 +335,24 @@ fn cycle_mode(current: Option<Mode>) -> Mode {
 }
 
 fn run(args: &Args) -> Result<()> {
-    if args.audio.is_empty() {
+    if args.list_audio {
         list_audio_devices();
-        println!("\nUse --audio <pattern> to select a device, then --port <port> to connect.");
         return Ok(());
     }
 
-    let port = open_port(&args.port, args.baud)?;
+    let port_path = args
+        .port
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("--port is required (e.g. --port /dev/ttyUSB0)"))?;
+
+    let port = open_port(port_path, args.baud)?;
     let mut device = Tx500::new(port);
 
-    let audio_device = find_audio_device(&args.audio);
-    let _audio_stream = audio_device.map(|d| {
-        start_audio(d).ok()
-    }).flatten();
+    let _audio_stream = args
+        .audio
+        .as_deref()
+        .and_then(|pat| find_audio_device(pat))
+        .and_then(|d| start_audio(d).ok());
 
     let mut state = RadioState {
         audio_active: _audio_stream.is_some(),
@@ -328,9 +362,6 @@ fn run(args: &Args) -> Result<()> {
     // Initial poll
     poll_radio(&mut device, &mut state);
 
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
     let mut terminal = ratatui::init();
 
     let poll_interval = Duration::from_millis(args.poll_ms);
@@ -338,7 +369,6 @@ fn run(args: &Args) -> Result<()> {
 
     loop {
         terminal.draw(|f| draw(f, &state))?;
-        state.error = None;
 
         if event::poll(Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
@@ -349,7 +379,7 @@ fn run(args: &Args) -> Result<()> {
                     (KeyCode::Up, _) => {
                         let f = state.frequency.saturating_add(10);
                         if let Err(e) = device.set_frequency_a(f) {
-                            state.error = Some(e.to_string());
+                            log_error(&mut state, e.to_string());
                         } else {
                             state.frequency = f;
                         }
@@ -357,7 +387,7 @@ fn run(args: &Args) -> Result<()> {
                     (KeyCode::Down, _) => {
                         let f = state.frequency.saturating_sub(10);
                         if let Err(e) = device.set_frequency_a(f) {
-                            state.error = Some(e.to_string());
+                            log_error(&mut state, e.to_string());
                         } else {
                             state.frequency = f;
                         }
@@ -365,7 +395,7 @@ fn run(args: &Args) -> Result<()> {
                     (KeyCode::Right, _) => {
                         let f = state.frequency.saturating_add(100);
                         if let Err(e) = device.set_frequency_a(f) {
-                            state.error = Some(e.to_string());
+                            log_error(&mut state, e.to_string());
                         } else {
                             state.frequency = f;
                         }
@@ -373,7 +403,7 @@ fn run(args: &Args) -> Result<()> {
                     (KeyCode::Left, _) => {
                         let f = state.frequency.saturating_sub(100);
                         if let Err(e) = device.set_frequency_a(f) {
-                            state.error = Some(e.to_string());
+                            log_error(&mut state, e.to_string());
                         } else {
                             state.frequency = f;
                         }
@@ -381,7 +411,7 @@ fn run(args: &Args) -> Result<()> {
                     (KeyCode::PageUp, _) => {
                         let f = state.frequency.saturating_add(1_000);
                         if let Err(e) = device.set_frequency_a(f) {
-                            state.error = Some(e.to_string());
+                            log_error(&mut state, e.to_string());
                         } else {
                             state.frequency = f;
                         }
@@ -389,7 +419,7 @@ fn run(args: &Args) -> Result<()> {
                     (KeyCode::PageDown, _) => {
                         let f = state.frequency.saturating_sub(1_000);
                         if let Err(e) = device.set_frequency_a(f) {
-                            state.error = Some(e.to_string());
+                            log_error(&mut state, e.to_string());
                         } else {
                             state.frequency = f;
                         }
@@ -397,7 +427,7 @@ fn run(args: &Args) -> Result<()> {
                     (KeyCode::Char('+'), _) => {
                         let f = state.frequency.saturating_add(1_000_000);
                         if let Err(e) = device.set_frequency_a(f) {
-                            state.error = Some(e.to_string());
+                            log_error(&mut state, e.to_string());
                         } else {
                             state.frequency = f;
                         }
@@ -405,7 +435,7 @@ fn run(args: &Args) -> Result<()> {
                     (KeyCode::Char('-'), _) => {
                         let f = state.frequency.saturating_sub(1_000_000);
                         if let Err(e) = device.set_frequency_a(f) {
-                            state.error = Some(e.to_string());
+                            log_error(&mut state, e.to_string());
                         } else {
                             state.frequency = f;
                         }
@@ -413,7 +443,7 @@ fn run(args: &Args) -> Result<()> {
                     (KeyCode::Char('m'), _) => {
                         let next = cycle_mode(state.mode);
                         if let Err(e) = device.set_mode(next) {
-                            state.error = Some(e.to_string());
+                            log_error(&mut state, e.to_string());
                         } else {
                             state.mode = Some(next);
                         }
@@ -426,7 +456,7 @@ fn run(args: &Args) -> Result<()> {
                             device.set_rx()
                         };
                         if let Err(e) = result {
-                            state.error = Some(e.to_string());
+                            log_error(&mut state, e.to_string());
                         } else {
                             state.ptt = next;
                         }
@@ -434,7 +464,7 @@ fn run(args: &Args) -> Result<()> {
                     (KeyCode::Char('p'), _) => {
                         let next = !state.preamp;
                         if let Err(e) = device.set_preamp(next) {
-                            state.error = Some(e.to_string());
+                            log_error(&mut state, e.to_string());
                         } else {
                             state.preamp = next;
                         }
@@ -442,7 +472,7 @@ fn run(args: &Args) -> Result<()> {
                     (KeyCode::Char('a'), _) => {
                         let next = !state.attenuator;
                         if let Err(e) = device.set_attenuator(next) {
-                            state.error = Some(e.to_string());
+                            log_error(&mut state, e.to_string());
                         } else {
                             state.attenuator = next;
                         }
@@ -450,7 +480,7 @@ fn run(args: &Args) -> Result<()> {
                     (KeyCode::Char('s'), _) => {
                         let next = !state.split;
                         if let Err(e) = device.set_split(next) {
-                            state.error = Some(e.to_string());
+                            log_error(&mut state, e.to_string());
                         } else {
                             state.split = next;
                         }
@@ -467,14 +497,13 @@ fn run(args: &Args) -> Result<()> {
     }
 
     ratatui::restore();
-    disable_raw_mode()?;
-    execute!(io::stdout(), LeaveAlternateScreen)?;
     Ok(())
 }
 
 fn main() {
     let args = Args::parse();
     if let Err(e) = run(&args) {
+        ratatui::restore();
         eprintln!("Error: {e:#}");
         std::process::exit(1);
     }

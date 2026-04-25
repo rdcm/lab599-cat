@@ -31,12 +31,25 @@ impl<T: std::io::Read + std::io::Write> Tx500<T> {
     }
 
     fn recv(&mut self) -> Result<Response, CatError> {
-        let mut buf = [0u8; 128];
-        let n = self
-            .io
-            .read(&mut buf)
-            .map_err(|e| CatError::DeviceError(e.to_string()))?;
-        let s = std::str::from_utf8(&buf[..n])
+        // Read byte-by-byte until ';' terminator to handle partial reads.
+        let mut buf = Vec::with_capacity(64);
+        let mut byte = [0u8; 1];
+        loop {
+            match self.io.read(&mut byte) {
+                Ok(0) => break,
+                Ok(_) => {
+                    buf.push(byte[0]);
+                    if byte[0] == b';' {
+                        break;
+                    }
+                    if buf.len() > 256 {
+                        return Err(CatError::DeviceError("response too long".into()));
+                    }
+                }
+                Err(e) => return Err(CatError::DeviceError(e.to_string())),
+            }
+        }
+        let s = std::str::from_utf8(&buf)
             .map_err(|e| CatError::DeviceError(e.to_string()))?;
         Protocol::decode(s)
     }
