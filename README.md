@@ -15,7 +15,7 @@ Commands outside this set require **Lab599 native mode** — notably `PR` (speec
 ## Workspace layout
 
 ```
-lab599-cat/    — protocol types + Tx500<T> driver
+lab599-cat/    — protocol types + CatDriver<T> driver
 lab599-ctl/    — terminal UI app, binary: lab599
 ```
 
@@ -122,7 +122,7 @@ radio.set_speech_compressor(true)?;
 
 | Feature | Enables |
 |---|---|
-| `tx500` | `Tx500<T>` driver + TX-500-specific commands: `BD`, `BU`, `SP`, `VV`, `XT` |
+| `tx500` | `CatDriver<T>` driver + TX-500-specific commands: `BD`, `BU`, `SP`, `VV`, `XT` |
 | `tx500mp` | TX-500MP-specific commands: `AC` (antenna tuner), `CT` (CTCSS). Implies `tx500`. |
 
 Add to your `Cargo.toml`:
