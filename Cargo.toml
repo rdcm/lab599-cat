@@ -8,11 +8,10 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
-
-anyhow     = "1"
-clap       = { version = "4", features = ["derive"] }
+anyhow     = "1.0.102"
+clap       = { version = "4.6.1", features = ["derive"] }
 cpal       = "0.17.3"
-crossterm  = { version = "0.29", features = ["event-stream"] }
+crossterm  = { version = "0.29.0", features = ["event-stream"] }
 lab599-cat = { path = "lab599-cat" }
 ratatui    = "0.30.0"
 serialport = "4.9.0"
