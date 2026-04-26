@@ -1,19 +1,18 @@
 [package]
 name = "lab599-cat-tui"
-version = "0.1.0"
-edition = "2021"
+version = { workspace = true }
+edition  = { workspace = true }
 
 [[bin]]
 name = "lab599-cat-tui"
 path = "src/main.rs"
 
 [dependencies]
-anyhow     = "1"
-clap       = { version = "4", features = ["derive"] }
-cpal       = "0.15"
-crossterm  = { version = "0.28", features = ["event-stream"] }
-lab599-cat-core   = { path = "../../lab599-cat-core" }
-lab599-cat-device = { path = "../../lab599-cat-device", features = ["tx500"] }
-
-ratatui    = "0.29"
-serialport = "4"
+anyhow            = { workspace = true }
+clap              = { workspace = true }
+cpal              = { workspace = true }
+crossterm         = { workspace = true }
+lab599-cat-core   = { workspace = true }
+lab599-cat-device = { workspace = true, features = ["tx500"] }
+ratatui           = { workspace = true }
+serialport        = { workspace = true }

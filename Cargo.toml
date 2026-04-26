@@ -2,3 +2,19 @@
 members = ["examples/tui", "lab599-cat-core", "lab599-cat-device"]
 
 resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+
+anyhow    = "1"
+clap      = { version = "4", features = ["derive"] }
+cpal      = "0.15"
+crossterm = { version = "0.28", features = ["event-stream"] }
+lab599-cat-core   = { path = "lab599-cat-core" }
+lab599-cat-device = { path = "lab599-cat-device" }
+ratatui   = "0.29"
+serialport = "4"
+thiserror = "1"

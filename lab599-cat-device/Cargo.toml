@@ -1,7 +1,7 @@
 [package]
 name = "lab599-cat-device"
-version = "0.1.0"
-edition = "2021"
+version = { workspace = true }
+edition  = { workspace = true }
 
 [features]
 default = []
@@ -9,4 +9,4 @@ tx500 = []
 tx500mp = ["tx500"]
 
 [dependencies]
-lab599-cat-core = { path = "../lab599-cat-core" }
+lab599-cat-core = { workspace = true }
