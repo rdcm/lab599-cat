@@ -1,4 +1,4 @@
-use lab599_cat_core::{Mode, Protocol, Response};
+use lab599_cat::{Mode, Protocol, Response};
 
 #[test]
 fn decode_if_answer() {

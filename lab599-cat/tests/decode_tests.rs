@@ -1,4 +1,4 @@
-use lab599_cat_core::{MeterType, Mode, Protocol, Response, VfoSelect};
+use lab599_cat::{MeterType, Mode, Protocol, Response, VfoSelect};
 
 #[test]
 fn decode_fa_answer() {

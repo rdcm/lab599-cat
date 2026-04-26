@@ -5,7 +5,7 @@ build-all:
 	cargo build --release --workspace --features lab599-cat-device/tx500mp
 
 tests:
-	cargo test --workspace --features lab599-cat-device/tx500mp --exclude lab599-cat-tui
+	cargo test --workspace --features lab599-cat/tx500mp --exclude lab599-cat-tui
 
 format:
 	cargo sort --workspace

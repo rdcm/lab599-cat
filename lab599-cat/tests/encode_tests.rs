@@ -1,4 +1,4 @@
-use lab599_cat_core::{Command, MeterType, Mode, Protocol, VfoSelect};
+use lab599_cat::{Command, MeterType, Mode, Protocol, VfoSelect};
 
 #[test]
 fn encode_fa_set() {

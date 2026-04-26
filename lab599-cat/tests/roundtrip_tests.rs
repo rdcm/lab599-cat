@@ -1,4 +1,4 @@
-use lab599_cat_core::{Command, Mode, Protocol, Response};
+use lab599_cat::{Command, Mode, Protocol, Response};
 
 #[test]
 fn roundtrip_fa() {

@@ -1,4 +1,4 @@
-use lab599_cat_core::{CatError, Protocol};
+use lab599_cat::{CatError, Protocol};
 
 #[test]
 fn decode_command_error() {

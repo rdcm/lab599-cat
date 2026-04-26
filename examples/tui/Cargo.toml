@@ -8,11 +8,10 @@ name = "lab599-cat-tui"
 path = "src/main.rs"
 
 [dependencies]
-anyhow            = { workspace = true }
-clap              = { workspace = true }
-cpal              = { workspace = true }
-crossterm         = { workspace = true }
-lab599-cat-core   = { workspace = true }
-lab599-cat-device = { workspace = true, features = ["tx500"] }
-ratatui           = { workspace = true }
-serialport        = { workspace = true }
+anyhow     = { workspace = true }
+clap       = { workspace = true }
+cpal       = { workspace = true }
+crossterm  = { workspace = true }
+lab599-cat = { workspace = true, features = ["tx500"] }
+ratatui    = { workspace = true }
+serialport = { workspace = true }

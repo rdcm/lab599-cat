@@ -1,4 +1,4 @@
-use lab599_cat_core::{
+use crate::{
     CatError, Command, IfStatus, MemoryData, MeterType, Mode, Protocol, Response, VfoSelect,
 };
 

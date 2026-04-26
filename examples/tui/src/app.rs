@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
-use lab599_cat_device::Tx500;
+use lab599_cat::Tx500;
 
 use crate::{
     args::Args,

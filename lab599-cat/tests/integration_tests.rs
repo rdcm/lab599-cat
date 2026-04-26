@@ -1,5 +1,5 @@
-use lab599_cat_core::Mode;
-use lab599_cat_device::Tx500;
+use lab599_cat::Mode;
+use lab599_cat::Tx500;
 
 /// Mock I/O with separate read (response) and write (command) buffers.
 struct MockIo {

@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use lab599_cat_core::Mode;
+use lab599_cat::Mode;
 
 pub const MAX_ERRORS: usize = 8;
 

@@ -7,3 +7,9 @@ mod command;
 mod error;
 mod protocol;
 mod response;
+
+#[cfg(feature = "tx500")]
+mod tx500;
+
+#[cfg(feature = "tx500")]
+pub use tx500::Tx500;

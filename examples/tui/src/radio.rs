@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use lab599_cat_device::Tx500;
+use lab599_cat::Tx500;
 use serialport::SerialPort;
 
 use crate::state::RadioState;
