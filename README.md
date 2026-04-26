@@ -2,7 +2,13 @@
 
 Rust implementation of the **Lab599 native CAT protocol** (rev. 3) for the TX-500 transceiver.
 
-This is **not** a TS-2000 compatibility wrapper — it targets the Lab599-specific protocol spoken over the CAT/USB port.
+The TX-500 supports two CAT modes (Menu 25: `LAB599` / `TS-2000`). Most commands work in both modes. The following are confirmed supported in TS-2000 mode:
+
+```
+ID  AI  RX  TX  IF  FA  FB  MD  FR  FT  FN  PA  RA
+```
+
+Commands outside this set require **Lab599 native mode** — notably `PR` (speech compressor / CMR).
 
 ---
 
