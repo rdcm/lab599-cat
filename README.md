@@ -37,13 +37,6 @@ On Linux, add your user to the `dialout` group to access the serial port without
 sudo usermod -aG dialout $USER
 ```
 
-### Radio setup
-
-Enable Lab599 native CAT in the TX-500 menu:
-
-- **Menu 25** — `CAT` → set to `LAB599` (not `TS-2000`)
-- **Menu 26** — `CAT RATE` → `9600`
-
 ---
 
 ## TUI
