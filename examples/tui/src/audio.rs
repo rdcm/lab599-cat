@@ -28,7 +28,11 @@ pub fn find_audio_device(name_pattern: &str) -> Option<cpal::Device> {
     let host = cpal::default_host();
     host.input_devices().ok()?.find(|d| {
         d.description()
-            .map(|n| n.name().to_lowercase().contains(&name_pattern.to_lowercase()))
+            .map(|n| {
+                n.name()
+                    .to_lowercase()
+                    .contains(&name_pattern.to_lowercase())
+            })
             .unwrap_or(false)
     })
 }
