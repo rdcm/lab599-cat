@@ -9,14 +9,14 @@ use crate::{
 /// Feature flags:
 /// - `tx500`   — enables this module and TX500-specific commands (BD, BU, SP, VV, XT).
 /// - `tx500mp` — implies `tx500`; adds TX500MP-specific commands (AC, CT).
-pub struct Tx500<T>
+pub struct CatDriver<T>
 where
     T: std::io::Read + std::io::Write,
 {
     io: T,
 }
 
-impl<T: std::io::Read + std::io::Write> Tx500<T> {
+impl<T: std::io::Read + std::io::Write> CatDriver<T> {
     pub fn new(io: T) -> Self {
         Self { io }
     }
@@ -370,7 +370,7 @@ impl<T: std::io::Read + std::io::Write> Tx500<T> {
 
     pub fn get_meter(&mut self, meter: MeterType) -> Result<u16, CatError> {
         self.send(&Command::RmSet(meter))?;
-        match self.recv()? {
+        match self.send_recv(&Command::RmRead)? {
             Response::Rm { value, .. } => Ok(value),
             _ => Err(CatError::UnknownResponse("RM".into())),
         }
@@ -494,6 +494,20 @@ impl<T: std::io::Read + std::io::Write> Tx500<T> {
 
     pub fn set_dsp_if(&mut self, on: bool) -> Result<(), CatError> {
         self.send(&Command::IsSet(on))
+    }
+
+    pub fn get_dsp_if(&mut self) -> Result<bool, CatError> {
+        match self.send_recv(&Command::IsRead)? {
+            Response::Is(v) => Ok(v),
+            _ => Err(CatError::UnknownResponse("IS".into())),
+        }
+    }
+
+    pub fn get_monitor_mute(&mut self) -> Result<bool, CatError> {
+        match self.send_recv(&Command::MoRead)? {
+            Response::Mo(v) => Ok(v),
+            _ => Err(CatError::UnknownResponse("MO".into())),
+        }
     }
 
     pub fn set_dig_gain(&mut self, value: u8) -> Result<(), CatError> {

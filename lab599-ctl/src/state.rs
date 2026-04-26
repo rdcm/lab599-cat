@@ -68,6 +68,7 @@ impl Step {
 
 #[derive(Clone, Default)]
 pub struct RadioState {
+    pub model: String,
     pub frequency: u64,
     pub mode: Option<Mode>,
     pub filter: u8,
@@ -80,6 +81,18 @@ pub struct RadioState {
     pub step: Step,
     pub audio_active: bool,
     pub errors: Vec<(Instant, String)>,
+    // extended state
+    pub vox: bool,
+    pub nr: bool,
+    pub nb: bool,
+    pub notch: bool,
+    pub mon: bool,
+    pub dif: bool,
+    pub power: u8,
+    pub af_gain: u16,
+    pub voltage: u16,
+    pub swr: u16,
+    pub busy: bool,
 }
 
 impl RadioState {
@@ -140,5 +153,17 @@ impl RadioState {
 
     pub fn next_filter(&self) -> u8 {
         (self.filter + 1) % 4
+    }
+
+    pub fn voltage_display(&self) -> String {
+        format!("{:.1}V", self.voltage as f32 / 10.0)
+    }
+
+    pub fn swr_display(&self) -> String {
+        if !self.ptt || self.swr == 0 {
+            "---".to_string()
+        } else {
+            format!("{}", self.swr)
+        }
     }
 }

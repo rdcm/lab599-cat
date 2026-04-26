@@ -9,7 +9,7 @@ mod protocol;
 mod response;
 
 #[cfg(feature = "tx500")]
-mod tx500;
+mod driver;
 
 #[cfg(feature = "tx500")]
-pub use tx500::Tx500;
+pub use driver::CatDriver;

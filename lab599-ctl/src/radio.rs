@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use lab599_cat::Tx500;
+use lab599_cat::{CatDriver, MeterType};
 use serialport::SerialPort;
 
 use crate::state::RadioState;
@@ -21,29 +21,43 @@ pub fn open_port(path: &str, baud: u32) -> Result<Box<dyn SerialPort>> {
     Ok(port)
 }
 
-pub fn poll_radio(device: &mut Tx500<Box<dyn SerialPort>>, state: &mut RadioState) {
-    match device.get_frequency_a() {
-        Ok(f) => state.frequency = f,
-        Err(e) => state.log_error(format!("FA: {e}")),
+pub fn poll_radio(device: &mut CatDriver<Box<dyn SerialPort>>, state: &mut RadioState) {
+    macro_rules! poll {
+        ($call:expr, $field:expr, $tag:literal) => {
+            match $call {
+                Ok(v) => $field = v,
+                Err(e) => state.log_error(format!(concat!($tag, ": {}"), e)),
+            }
+        };
     }
-    match device.get_mode() {
-        Ok(m) => state.mode = Some(m),
-        Err(e) => state.log_error(format!("MD: {e}")),
-    }
-    match device.get_filter() {
-        Ok((rx, _)) => state.filter = rx,
-        Err(e) => state.log_error(format!("FL: {e}")),
-    }
-    match device.get_smeter() {
-        Ok(s) => state.smeter = s,
-        Err(e) => state.log_error(format!("SM: {e}")),
-    }
-    match device.get_ptt() {
-        Ok(p) => state.ptt = p,
-        Err(e) => state.log_error(format!("PT: {e}")),
-    }
-    match device.get_speech_compressor() {
-        Ok(v) => state.cmr = v,
-        Err(e) => state.log_error(format!("PR: {e}")),
+
+    poll!(device.get_frequency_a(), state.frequency, "FA");
+    poll!(device.get_mode().map(Some), state.mode, "MD");
+    poll!(device.get_filter().map(|(rx, _)| rx), state.filter, "FL");
+    poll!(device.get_smeter(), state.smeter, "SM");
+    poll!(device.get_ptt(), state.ptt, "PT");
+    poll!(device.get_speech_compressor(), state.cmr, "PR");
+    poll!(device.get_preamp(), state.preamp, "PA");
+    poll!(device.get_attenuator(), state.attenuator, "RA");
+    poll!(device.get_split(), state.split, "SP");
+    poll!(device.get_vox(), state.vox, "VX");
+    poll!(device.get_noise_reduction(), state.nr, "NR");
+    poll!(device.get_noise_blanker(), state.nb, "NB");
+    poll!(device.get_notch(), state.notch, "NT");
+    poll!(
+        device.get_monitor_mute().map(|muted| !muted),
+        state.mon,
+        "MO"
+    );
+    poll!(device.get_dsp_if(), state.dif, "IS");
+    poll!(device.get_power(), state.power, "PC");
+    poll!(device.get_af_gain(), state.af_gain, "AG");
+    poll!(device.get_voltage(), state.voltage, "VL");
+    poll!(device.get_busy(), state.busy, "BY");
+
+    if state.ptt {
+        poll!(device.get_meter(MeterType::Swr), state.swr, "RM");
+    } else {
+        state.swr = 0;
     }
 }

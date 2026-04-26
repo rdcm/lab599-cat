@@ -283,7 +283,7 @@ fn decode_vg_answer() {
 
 #[test]
 fn decode_vl_answer() {
-    assert_eq!(Protocol::decode("VL1350;"), Ok(Response::Vl(1350)));
+    assert_eq!(Protocol::decode("VL11.7 ;"), Ok(Response::Vl(117)));
 }
 
 #[test]

@@ -362,7 +362,14 @@ impl Response {
 
             "VG" => Ok(Response::Vg(parse_u8(params, "VG")?)),
 
-            "VL" => Ok(Response::Vl(parse_u16(params, "VL")?)),
+            "VL" => {
+                let v = params
+                    .trim()
+                    .parse::<f32>()
+                    .map(|f| (f * 10.0).round() as u16)
+                    .map_err(|_| parse_err("VL", params))?;
+                Ok(Response::Vl(v))
+            }
 
             "VX" => Ok(Response::Vx(parse_bool(params, "VX")?)),
 
