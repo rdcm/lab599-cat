@@ -17,7 +17,7 @@ pub fn list_audio_devices() {
     println!("Available audio input devices:");
     if let Ok(devices) = host.input_devices() {
         for d in devices {
-            if let Ok(name) = d.name() {
+            if let Ok(name) = d.description() {
                 println!("  {name}");
             }
         }
@@ -27,8 +27,8 @@ pub fn list_audio_devices() {
 pub fn find_audio_device(name_pattern: &str) -> Option<cpal::Device> {
     let host = cpal::default_host();
     host.input_devices().ok()?.find(|d| {
-        d.name()
-            .map(|n| n.to_lowercase().contains(&name_pattern.to_lowercase()))
+        d.description()
+            .map(|n| n.name().to_lowercase().contains(&name_pattern.to_lowercase()))
             .unwrap_or(false)
     })
 }
