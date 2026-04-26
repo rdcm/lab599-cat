@@ -15,8 +15,8 @@ Commands outside this set require **Lab599 native mode** — notably `PR` (speec
 ## Workspace layout
 
 ```
-lab599-cat/      — protocol types + Tx500<T> driver
-examples/tui/    — terminal UI (ratatui) for live radio control
+lab599-cat/    — protocol types + Tx500<T> driver
+lab599-ctl/    — terminal UI app, binary: lab599
 ```
 
 ---
@@ -38,17 +38,17 @@ sudo usermod -aG dialout $USER
 
 ---
 
-## TUI
+## lab599-ctl
 
-A terminal UI for real-time radio control.
+Terminal UI for real-time radio control. Builds to a single binary `lab599`.
 
 ### Build & run
 
 ```sh
-make tui-build        # build release binary
-make tui-run          # connect to /dev/ttyUSB0
-make tui-with-audio   # connect + audio loopback (pipewire)
-make tui-list-audio   # list available audio input devices
+make build          # build all
+make run            # connect to /dev/ttyUSB0
+make run-audio      # connect + audio loopback (pipewire)
+make list-audio     # list available audio input devices
 ```
 
 ### CLI options

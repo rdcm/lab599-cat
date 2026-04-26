@@ -1,5 +1,5 @@
 [workspace]
-members = ["examples/tui", "lab599-cat"]
+members = ["lab599-cat", "lab599-ctl"]
 
 resolver = "2"
 

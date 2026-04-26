@@ -845,7 +845,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lab599-cat-tui"
+name = "lab599-ctl"
 version = "0.1.0"
 dependencies = [
  "anyhow",

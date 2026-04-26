@@ -2,10 +2,10 @@ build:
 	cargo build --release --workspace
 
 build-all:
-	cargo build --release --workspace --features lab599-cat-device/tx500mp
+	cargo build --release --workspace --features lab599-cat/tx500mp
 
 tests:
-	cargo test --workspace --features lab599-cat/tx500mp --exclude lab599-cat-tui
+	cargo nextest run --workspace --features lab599-cat/tx500mp --exclude lab599-ctl
 
 format:
 	cargo sort --workspace
@@ -14,17 +14,14 @@ format:
 lint:
 	cargo clippy --release --all-targets
 
-tui-build:
-	cargo build --release -p lab599-cat-tui
+run:
+	./target/release/lab599 --port /dev/ttyUSB0
 
-tui-run:
-	./target/release/lab599-cat-tui --port /dev/ttyUSB0
+run-audio:
+	./target/release/lab599 --port /dev/ttyUSB0 --audio pipewire
 
-tui-list-audio:
-	./target/release/lab599-cat-tui --list-audio
-
-tui-with-audio:
-	./target/release/lab599-cat-tui --port /dev/ttyUSB0 --audio pipewire
+list-audio:
+	./target/release/lab599 --list-audio
 
 setup-deps:
 	sudo dnf install -y systemd-devel alsa-lib-devel

@@ -1,10 +1,10 @@
 [package]
-name = "lab599-cat-tui"
+name = "lab599-ctl"
 version = { workspace = true }
 edition  = { workspace = true }
 
 [[bin]]
-name = "lab599-cat-tui"
+name = "lab599"
 path = "src/main.rs"
 
 [dependencies]
