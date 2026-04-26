@@ -15,9 +15,8 @@ Commands outside this set require **Lab599 native mode** — notably `PR` (speec
 ## Workspace layout
 
 ```
-lab599-cat-core/     — protocol types: Command, Response, Mode, encode/decode
-lab599-cat-device/   — Tx500<T> driver, generic over any Read+Write transport
-examples/tui/        — terminal UI (ratatui) for live radio control
+lab599-cat/      — protocol types + Tx500<T> driver
+examples/tui/    — terminal UI (ratatui) for live radio control
 ```
 
 ---
@@ -87,10 +86,10 @@ The bar is color-coded: green (≤ S9), yellow (S9+20), red (S9+40 and above).
 
 ## Library usage
 
-`lab599-cat-device` is generic over any `Read + Write` transport — use a real serial port in production, or a `std::io::Cursor` in tests.
+`Tx500<T>` is generic over any `Read + Write` transport — use a real serial port in production, or a `std::io::Cursor` in tests.
 
 ```rust
-use lab599_cat_device::Tx500;
+use lab599_cat::Tx500;
 
 // Real serial port
 let port = serialport::new("/dev/ttyUSB0", 9600)
@@ -112,17 +111,17 @@ radio.set_split(true)?;
 radio.set_speech_compressor(true)?;
 ```
 
-### Feature flags (`lab599-cat-device`)
+### Feature flags
 
 | Feature | Enables |
 |---|---|
-| `tx500` | TX-500-specific commands: `BD`, `BU`, `SP`, `VV`, `XT` |
+| `tx500` | `Tx500<T>` driver + TX-500-specific commands: `BD`, `BU`, `SP`, `VV`, `XT` |
 | `tx500mp` | TX-500MP-specific commands: `AC` (antenna tuner), `CT` (CTCSS). Implies `tx500`. |
 
 Add to your `Cargo.toml`:
 
 ```toml
-lab599-cat-device = { path = "...", features = ["tx500"] }
+lab599-cat = { version = "0.1", features = ["tx500"] }
 ```
 
 ---
