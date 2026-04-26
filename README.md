@@ -1,6 +1,6 @@
 # lab599-cat
 
-Rust implementation of the **Lab599 native CAT protocol** (rev. 3) for the TX-500 transceiver.
+Rust implementation of the CAT protocol for the Lab599 TX-500 transceiver. Works with both **Lab599 native** (rev. 3) and **TS-2000 compatible** modes.
 
 The TX-500 supports two CAT modes (Menu 25: `LAB599` / `TS-2000`). Most commands work in both modes. The following are confirmed supported in TS-2000 mode:
 
