@@ -220,7 +220,11 @@ fn model_from_id(id: u16) -> String {
     }
 }
 
-fn tune(device: &mut CatDriver<Box<dyn serialport::SerialPort>>, state: &mut RadioState, delta: i64) {
+fn tune(
+    device: &mut CatDriver<Box<dyn serialport::SerialPort>>,
+    state: &mut RadioState,
+    delta: i64,
+) {
     let freq = (state.frequency as i64 + delta).max(0) as u64;
     match device.set_frequency_a(freq) {
         Ok(()) => state.frequency = freq,

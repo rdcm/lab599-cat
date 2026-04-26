@@ -98,7 +98,9 @@ fn render_radio_info(frame: &mut Frame, state: &RadioState, area: Rect) {
         Span::raw(" Lab599 "),
         Span::styled(
             state.model.clone(),
-            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
         ),
         Span::raw(" "),
     ]);
@@ -209,7 +211,11 @@ fn render_status(frame: &mut Frame, state: &RadioState, area: Rect) {
     ];
 
     frame.render_widget(
-        Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(" DSP & Modes ")),
+        Paragraph::new(lines).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" DSP & Modes "),
+        ),
         area,
     );
 }

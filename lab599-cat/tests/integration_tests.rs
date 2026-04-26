@@ -1,4 +1,4 @@
-use lab599_cat::{MeterType, Mode, CatDriver};
+use lab599_cat::{CatDriver, MeterType, Mode};
 
 /// Mock I/O with separate read (response) and write (command) buffers.
 struct MockIo {
