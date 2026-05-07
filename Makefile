@@ -23,5 +23,8 @@ run-audio:
 list-audio:
 	./target/release/lab599 --list-audio
 
-setup-deps:
+setup-deps-fedora:
 	sudo dnf install -y systemd-devel alsa-lib-devel
+
+setup-deps-ubuntu:
+	sudo apt install -y build-essential pkg-config libasound2-dev libudev-dev
