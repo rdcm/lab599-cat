@@ -22,4 +22,12 @@ pub struct Args {
     /// Poll interval for CAT status in milliseconds
     #[arg(long, default_value = "200")]
     pub poll_ms: u64,
+
+    /// IQ input device name for spectrum display (substring match)
+    #[arg(long)]
+    pub iq_device: Option<String>,
+
+    /// IQ capture sample rate in Hz (44100–192000)
+    #[arg(long, default_value = "192000")]
+    pub iq_rate: u32,
 }

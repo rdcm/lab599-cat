@@ -2,6 +2,7 @@ mod app;
 mod args;
 mod audio;
 mod radio;
+mod spectrum;
 mod state;
 mod ui;
 

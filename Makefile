@@ -17,6 +17,9 @@ lint:
 run:
 	./target/release/lab599 --port /dev/ttyUSB0
 
+run-iq:
+	./target/release/lab599 --port /dev/ttyUSB0 --iq-device "USB Audio Device, USB Audio" --iq-rate 48000
+
 run-audio:
 	./target/release/lab599 --port /dev/ttyUSB0 --audio pipewire
 

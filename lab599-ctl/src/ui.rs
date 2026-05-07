@@ -2,29 +2,50 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Sparkline},
     Frame,
 };
 
+use std::sync::{Arc, Mutex};
+
+use crate::spectrum::{SpectrumBins, FFT_SIZE};
 use crate::state::RadioState;
 
-pub fn draw(frame: &mut Frame, state: &RadioState) {
+pub fn draw(
+    frame: &mut Frame,
+    state: &RadioState,
+    iq: Option<&(SpectrumBins, u32, Arc<Mutex<bool>>)>,
+) {
+    let has_spectrum = iq.is_some();
+    let mut constraints = vec![
+        Constraint::Length(9),
+        Constraint::Length(4),
+        Constraint::Length(4),
+        Constraint::Length(6),
+    ];
+    if has_spectrum {
+        constraints.push(Constraint::Length(10));
+    }
+    constraints.push(Constraint::Min(0));
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(9),
-            Constraint::Length(4),
-            Constraint::Length(4),
-            Constraint::Length(6),
-            Constraint::Min(0),
-        ])
+        .constraints(constraints)
         .split(frame.area());
 
     render_radio_info(frame, state, chunks[0]);
     render_smeter(frame, state, chunks[1]);
     render_status(frame, state, chunks[2]);
     render_help(frame, chunks[3]);
-    render_error_log(frame, state, chunks[4]);
+    if let Some((bins, sample_rate, is_stereo)) = iq {
+        let stereo = is_stereo.lock().map(|v| *v).unwrap_or(false);
+        if let Ok(data) = bins.lock() {
+            render_spectrum(frame, &data, *sample_rate, stereo, chunks[4]);
+        }
+        render_error_log(frame, state, chunks[5]);
+    } else {
+        render_error_log(frame, state, chunks[4]);
+    }
 }
 
 fn render_radio_info(frame: &mut Frame, state: &RadioState, area: Rect) {
@@ -230,6 +251,46 @@ fn render_help(frame: &mut Frame, area: Rect) {
 
     frame.render_widget(
         Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(" Keys ")),
+        area,
+    );
+}
+
+fn render_spectrum(frame: &mut Frame, bins: &[f32], sample_rate: u32, is_stereo: bool, area: Rect) {
+    let inner_w = area.width.saturating_sub(2) as usize;
+    if inner_w == 0 {
+        return;
+    }
+
+    let (display_bins, title) = if is_stereo {
+        let bw_khz = sample_rate / 2 / 1000;
+        (bins, format!(" Spectrum ±{bw_khz} kHz "))
+    } else {
+        let bw_khz = sample_rate / 2 / 1000;
+        (
+            &bins[..FFT_SIZE / 2],
+            format!(" Audio 0\u{2013}{bw_khz} kHz "),
+        )
+    };
+
+    let n = display_bins.len();
+    let data: Vec<u64> = (0..inner_w)
+        .map(|col| {
+            let lo = col * n / inner_w;
+            let hi = ((col + 1) * n / inner_w).max(lo + 1).min(n);
+            let max_db = display_bins[lo..hi]
+                .iter()
+                .cloned()
+                .fold(f32::NEG_INFINITY, f32::max);
+            // Map [-120, -20] dB → [0, 100]
+            (max_db + 120.0).clamp(0.0, 100.0) as u64
+        })
+        .collect();
+
+    frame.render_widget(
+        Sparkline::default()
+            .block(Block::default().borders(Borders::ALL).title(title))
+            .data(&data)
+            .style(Style::default().fg(Color::Green)),
         area,
     );
 }

@@ -6,11 +6,13 @@ use lab599_cat::CatDriver;
 
 use crate::{
     args::Args,
-    audio::{find_audio_device, list_audio_devices, start_audio},
+    audio::{find_all_audio_devices, find_audio_device, list_audio_devices, start_audio},
     radio::{open_port, poll_radio},
+    spectrum::{start_iq_capture, SpectrumBins},
     state::{RadioState, Step},
     ui::draw,
 };
+use std::sync::{Arc, Mutex};
 
 pub fn run(args: &Args) -> Result<()> {
     if args.list_audio {
@@ -42,6 +44,26 @@ pub fn run(args: &Args) -> Result<()> {
         ..Default::default()
     };
 
+    let _iq = args.iq_device.as_deref().and_then(|name| {
+        let devices = find_all_audio_devices(name);
+        if devices.is_empty() {
+            state.log_error(format!("IQ: device not found: {name}"));
+            return None;
+        }
+        let mut last_err = String::new();
+        for dev in devices {
+            match start_iq_capture(dev, args.iq_rate) {
+                Ok(iq) => return Some(iq),
+                Err(e) => last_err = e.to_string(),
+            }
+        }
+        state.log_error(format!("IQ: {last_err}"));
+        None
+    });
+    let iq_bins: Option<(SpectrumBins, u32, Arc<Mutex<bool>>)> = _iq
+        .as_ref()
+        .map(|c| (c.bins.clone(), c.sample_rate, c.is_stereo.clone()));
+
     poll_radio(&mut device, &mut state);
 
     let mut terminal = ratatui::init();
@@ -49,7 +71,7 @@ pub fn run(args: &Args) -> Result<()> {
     let mut last_poll = Instant::now();
 
     loop {
-        terminal.draw(|f| draw(f, &state))?;
+        terminal.draw(|f| draw(f, &state, iq_bins.as_ref()))?;
 
         if event::poll(Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {

@@ -37,6 +37,24 @@ pub fn find_audio_device(name_pattern: &str) -> Option<cpal::Device> {
     })
 }
 
+pub fn find_all_audio_devices(name_pattern: &str) -> Vec<cpal::Device> {
+    let host = cpal::default_host();
+    host.input_devices()
+        .map(|devs| {
+            devs.filter(|d| {
+                d.description()
+                    .map(|n| {
+                        n.name()
+                            .to_lowercase()
+                            .contains(&name_pattern.to_lowercase())
+                    })
+                    .unwrap_or(false)
+            })
+            .collect()
+        })
+        .unwrap_or_default()
+}
+
 pub fn start_audio(input_device: cpal::Device) -> Result<AudioLoopback> {
     let host = cpal::default_host();
     let output_device = host
