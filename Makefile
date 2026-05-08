@@ -18,7 +18,7 @@ run:
 	./target/release/lab599 --port /dev/ttyUSB0
 
 run-iq:
-	./target/release/lab599 --port /dev/ttyUSB0 --iq-device "USB Audio Device, USB Audio" --iq-rate 48000
+	./target/release/lab599 --port /dev/ttyUSB3 --iq-device "Sound Blaster Play! 3, USB Audio" --iq-rate 48000
 
 run-audio:
 	./target/release/lab599 --port /dev/ttyUSB0 --audio pipewire
@@ -30,4 +30,6 @@ setup-deps-fedora:
 	sudo dnf install -y systemd-devel alsa-lib-devel
 
 setup-deps-ubuntu:
+	sudo systemctl stop ModemManager
 	sudo apt install -y build-essential pkg-config libasound2-dev libudev-dev
+	sudo usermod -aG dialout $USER

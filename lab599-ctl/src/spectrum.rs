@@ -34,7 +34,8 @@ pub fn start_iq_capture(device: cpal::Device, sample_rate: u32) -> Result<IqCapt
     let channels = cfg_range.channels() as usize;
     let is_stereo: Arc<Mutex<bool>> = Arc::new(Mutex::new(channels >= 2));
     let fmt = cfg_range.sample_format();
-    let config: StreamConfig = cfg_range.with_sample_rate(sample_rate).into();
+    let mut config: StreamConfig = cfg_range.with_sample_rate(sample_rate).into();
+    config.buffer_size = cpal::BufferSize::Fixed(1024);
 
     let stream = build_stream(
         &device,
@@ -184,7 +185,7 @@ impl IqProcessor {
             if use_stereo {
                 // IIR DC blocker: α=0.9995 → time constant ~83 ms at 48 kHz.
                 // ch[0]=L=AUX Q (pin4), ch[1]=R=AUX I (pin5) per TX-500 cable wiring.
-                const DC_ALPHA: f32 = 0.9995;
+                const DC_ALPHA: f32 = 0.995;
                 for (i, ch) in self.buf.chunks(2).take(FFT_SIZE).enumerate() {
                     let raw_i = ch.get(1).copied().unwrap_or(0.0);
                     let raw_q = ch[0];
@@ -248,15 +249,6 @@ impl IqProcessor {
                         let mag = self.complex[i].norm();
                         let db = 20.0 * (mag / FFT_SIZE as f32 + 1e-10).log10();
                         s[shifted] = ALPHA * db + (1.0 - ALPHA) * s[shifted];
-                    }
-                    // Null the LO leakage spike at DC (center ±8 bins = ±188 Hz at 48 kHz)
-                    const DC_NULL: usize = 8;
-                    let center = FFT_SIZE / 2;
-                    for v in s
-                        [center.saturating_sub(DC_NULL)..=(center + DC_NULL).min(FFT_SIZE - 1)]
-                        .iter_mut()
-                    {
-                        *v = -100.0;
                     }
                 } else {
                     for i in 0..FFT_SIZE / 2 {

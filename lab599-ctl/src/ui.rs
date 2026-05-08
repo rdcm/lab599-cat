@@ -273,7 +273,7 @@ fn render_spectrum(frame: &mut Frame, bins: &[f32], sample_rate: u32, is_stereo:
     };
 
     let n = display_bins.len();
-    let data: Vec<u64> = (0..inner_w)
+    let mut data: Vec<u64> = (0..inner_w)
         .map(|col| {
             let lo = col * n / inner_w;
             let hi = ((col + 1) * n / inner_w).max(lo + 1).min(n);
@@ -285,6 +285,42 @@ fn render_spectrum(frame: &mut Frame, bins: &[f32], sample_rate: u32, is_stereo:
             (max_db + 120.0).clamp(0.0, 100.0) as u64
         })
         .collect();
+
+    // Suppress LO leakage / phase-noise pedestal at center frequency.
+    // Null zone is ≈±4% of display width; filled with interpolated baseline plus
+    // per-column stable pseudo-random noise that mimics surrounding spectrum texture.
+    if is_stereo && inner_w > 30 {
+        let c = inner_w / 2;
+        let null_half = (inner_w / 24).max(3);
+        let ref_l = c.saturating_sub(null_half + 8);
+        let ref_r = (c + null_half + 8).min(inner_w - 1);
+
+        // Noise amplitude from surrounding columns (left context only for simplicity)
+        let ctx_start = ref_l.saturating_sub(8);
+        let noise_amp = if ref_l > ctx_start {
+            let ctx = &data[ctx_start..ref_l];
+            let mn = ctx.iter().cloned().min().unwrap_or(0);
+            let mx = ctx.iter().cloned().max().unwrap_or(0);
+            mx.saturating_sub(mn) as f64 * 0.75
+        } else {
+            3.0
+        };
+
+        let v_l = data[ref_l] as f64;
+        let v_r = data[ref_r] as f64;
+        let span = (ref_r - ref_l) as f64;
+        let null_start = c.saturating_sub(null_half);
+        let null_end = (c + null_half).min(inner_w - 1);
+
+        for i in null_start..=null_end {
+            let t = (i.saturating_sub(ref_l)) as f64 / span;
+            let baseline = v_l + t * (v_r - v_l);
+            // Stable per-column hash — same value every frame, no flicker
+            let h = (i as u32).wrapping_mul(2654435761u32);
+            let noise = (h as f64 / u32::MAX as f64 - 0.5) * noise_amp;
+            data[i] = (baseline + noise).max(0.0) as u64;
+        }
+    }
 
     frame.render_widget(
         Sparkline::default()
