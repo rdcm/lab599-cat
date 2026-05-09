@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 
 use anyhow::Result;
 use cpal::{
@@ -16,10 +19,12 @@ pub struct IqCapture {
     pub sample_rate: u32,
     pub bins: SpectrumBins,
     pub is_stereo: Arc<Mutex<bool>>,
+    pub errors: Arc<Mutex<Vec<String>>>,
 }
 
 pub fn start_iq_capture(device: cpal::Device, sample_rate: u32) -> Result<IqCapture> {
     let bins: SpectrumBins = Arc::new(Mutex::new(vec![-100.0f32; FFT_SIZE]));
+    let errors: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
 
     let cfg_range = device
         .supported_input_configs()?
@@ -44,6 +49,7 @@ pub fn start_iq_capture(device: cpal::Device, sample_rate: u32) -> Result<IqCapt
         channels,
         bins.clone(),
         is_stereo.clone(),
+        errors.clone(),
     )?;
     stream.play()?;
 
@@ -52,6 +58,7 @@ pub fn start_iq_capture(device: cpal::Device, sample_rate: u32) -> Result<IqCapt
         sample_rate,
         bins,
         is_stereo,
+        errors,
     })
 }
 
@@ -62,8 +69,25 @@ fn build_stream(
     channels: usize,
     bins: SpectrumBins,
     is_stereo: Arc<Mutex<bool>>,
+    errors: Arc<Mutex<Vec<String>>>,
 ) -> Result<cpal::Stream> {
-    let err_fn = |e: cpal::StreamError| eprintln!("IQ stream error: {e}");
+    let err_fn = {
+        let mut last: Option<(String, Instant)> = None;
+        move |e: cpal::StreamError| {
+            let msg = e.to_string();
+            let now = Instant::now();
+            let stale = last
+                .as_ref()
+                .map(|(prev, t)| prev != &msg || t.elapsed() >= Duration::from_secs(5))
+                .unwrap_or(true);
+            if stale {
+                last = Some((msg.clone(), now));
+                if let Ok(mut q) = errors.lock() {
+                    q.push(msg);
+                }
+            }
+        }
+    };
 
     let stream = match fmt {
         SampleFormat::F32 => {

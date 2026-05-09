@@ -238,6 +238,13 @@ pub fn run(args: &Args) -> Result<()> {
         if last_poll.elapsed() >= poll_interval {
             poll_radio(&mut device, &mut state);
             last_poll = Instant::now();
+            if let Some(iq) = &_iq {
+                if let Ok(mut errs) = iq.errors.lock() {
+                    for e in errs.drain(..) {
+                        state.log_error(format!("IQ: {e}"));
+                    }
+                }
+            }
         }
     }
 
