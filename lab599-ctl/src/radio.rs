@@ -6,6 +6,31 @@ use serialport::SerialPort;
 
 use crate::state::RadioState;
 
+/// TX-500 uses FTDI FT232R (VID 0x0403, PID 0x6001).
+/// Prefers stable /dev/serial/by-id/ symlinks; falls back to VID/PID scan.
+pub fn auto_detect_port() -> Option<String> {
+    if let Ok(entries) = std::fs::read_dir("/dev/serial/by-id") {
+        for entry in entries.flatten() {
+            if entry
+                .file_name()
+                .to_string_lossy()
+                .to_lowercase()
+                .contains("ftdi")
+            {
+                return entry.path().to_str().map(str::to_owned);
+            }
+        }
+    }
+    serialport::available_ports().ok()?.into_iter().find_map(|p| {
+        if let serialport::SerialPortType::UsbPort(info) = p.port_type {
+            if info.vid == 0x0403 && info.pid == 0x6001 {
+                return Some(p.port_name);
+            }
+        }
+        None
+    })
+}
+
 pub fn open_port(path: &str, baud: u32) -> Result<Box<dyn SerialPort>> {
     let port = serialport::new(path, baud)
         .timeout(Duration::from_millis(2000))

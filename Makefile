@@ -15,16 +15,20 @@ lint:
 	cargo clippy --release --all-targets
 
 run:
-	./target/release/lab599 --port /dev/ttyUSB0
+	./target/release/lab599
 
 run-iq:
-	./target/release/lab599 --port /dev/ttyUSB3 --iq-device "Sound Blaster Play! 3, USB Audio" --iq-rate 48000
+	./target/release/lab599 --iq-device "Sound Blaster Play! 3, USB Audio" --iq-rate 48000
 
 run-audio:
-	./target/release/lab599 --port /dev/ttyUSB0 --audio pipewire
+	./target/release/lab599 --audio pipewire
 
 list-audio:
 	./target/release/lab599 --list-audio
+
+find-port:
+	@ls /dev/serial/by-id/ 2>/dev/null | grep -i ftdi | sed 's|^|/dev/serial/by-id/|' \
+	|| echo "(no FTDI device found in /dev/serial/by-id/)"
 
 setup-deps-fedora:
 	sudo dnf install -y systemd-devel alsa-lib-devel

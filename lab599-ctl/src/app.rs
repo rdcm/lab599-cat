@@ -7,7 +7,7 @@ use lab599_cat::CatDriver;
 use crate::{
     args::Args,
     audio::{find_all_audio_devices, find_audio_device, list_audio_devices, start_audio},
-    radio::{open_port, poll_radio},
+    radio::{auto_detect_port, open_port, poll_radio},
     spectrum::{start_iq_capture, SpectrumBins},
     state::{RadioState, Step},
     ui::draw,
@@ -20,10 +20,16 @@ pub fn run(args: &Args) -> Result<()> {
         return Ok(());
     }
 
-    let port_path = args
-        .port
-        .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("--port is required (e.g. --port /dev/ttyUSB0)"))?;
+    let detected;
+    let port_path = match args.port.as_deref() {
+        Some(p) => p,
+        None => {
+            detected = auto_detect_port()
+                .ok_or_else(|| anyhow::anyhow!("TX-500 not found — use --port to specify manually"))?;
+            eprintln!("Auto-detected TX-500 on {detected}");
+            detected.as_str()
+        }
+    };
 
     let port = open_port(port_path, args.baud)?;
     let mut device = CatDriver::new(port);
@@ -205,6 +211,10 @@ pub fn run(args: &Args) -> Result<()> {
                             Ok(()) => state.dif = next,
                             Err(e) => state.log_error(format!("IS: {e}")),
                         }
+                    }
+
+                    (KeyCode::Char('z'), _) => {
+                        state.dc_suppress = !state.dc_suppress;
                     }
 
                     (KeyCode::Char('['), _) => {

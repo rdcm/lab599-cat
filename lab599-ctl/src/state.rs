@@ -66,7 +66,7 @@ impl Step {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct RadioState {
     pub model: String,
     pub frequency: u64,
@@ -80,6 +80,7 @@ pub struct RadioState {
     pub cmr: bool,
     pub step: Step,
     pub audio_active: bool,
+    pub dc_suppress: bool,
     pub errors: Vec<(Instant, String)>,
     // extended state
     pub vox: bool,
@@ -93,6 +94,38 @@ pub struct RadioState {
     pub voltage: u16,
     pub swr: u16,
     pub busy: bool,
+}
+
+impl Default for RadioState {
+    fn default() -> Self {
+        Self {
+            model: String::new(),
+            frequency: 0,
+            mode: None,
+            filter: 0,
+            smeter: 0,
+            ptt: false,
+            preamp: false,
+            attenuator: false,
+            split: false,
+            cmr: false,
+            step: Step::default(),
+            audio_active: false,
+            dc_suppress: true,
+            errors: Vec::new(),
+            vox: false,
+            nr: false,
+            nb: false,
+            notch: false,
+            mon: false,
+            dif: false,
+            power: 0,
+            af_gain: 0,
+            voltage: 0,
+            swr: 0,
+            busy: false,
+        }
+    }
 }
 
 impl RadioState {

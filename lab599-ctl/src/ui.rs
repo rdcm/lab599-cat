@@ -40,7 +40,7 @@ pub fn draw(
     if let Some((bins, sample_rate, is_stereo)) = iq {
         let stereo = is_stereo.lock().map(|v| *v).unwrap_or(false);
         if let Ok(data) = bins.lock() {
-            render_spectrum(frame, &data, *sample_rate, stereo, chunks[4]);
+            render_spectrum(frame, &data, *sample_rate, stereo, state.dc_suppress, chunks[4]);
         }
         render_error_log(frame, state, chunks[5]);
     } else {
@@ -245,7 +245,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
     let lines = vec![
         Line::from("  ←/→  tune   ↑/↓  step   +/-  ±1 MHz   [/]  band"),
         Line::from("  m  mode    f  filter   p  preamp   a  att    s  split   t  TX"),
-        Line::from("  c  cmr     v  VOX      n  NR        b  NB     x  notch  o  mon   d  DIF"),
+        Line::from("  c  cmr     v  VOX      n  NR        b  NB     x  notch  o  mon   d  DIF   z  DC∅"),
         Line::from("  q / Ctrl+C  quit"),
     ];
 
@@ -255,21 +255,67 @@ fn render_help(frame: &mut Frame, area: Rect) {
     );
 }
 
-fn render_spectrum(frame: &mut Frame, bins: &[f32], sample_rate: u32, is_stereo: bool, area: Rect) {
+fn suppress_lo_spike(data: &mut [u64]) {
+    let inner_w = data.len();
+    if inner_w <= 30 {
+        return;
+    }
+    let c = inner_w / 2;
+    let null_half = (inner_w / 24).max(3);
+    let ref_l = c.saturating_sub(null_half + 8);
+    let ref_r = (c + null_half + 8).min(inner_w - 1);
+
+    let ctx_start = ref_l.saturating_sub(8);
+    let noise_amp = if ref_l > ctx_start {
+        let ctx = &data[ctx_start..ref_l];
+        let mn = ctx.iter().cloned().min().unwrap_or(0);
+        let mx = ctx.iter().cloned().max().unwrap_or(0);
+        mx.saturating_sub(mn) as f64 * 0.75
+    } else {
+        3.0
+    };
+
+    let v_l = data[ref_l] as f64;
+    let v_r = data[ref_r] as f64;
+    let span = (ref_r - ref_l) as f64;
+    let null_start = c.saturating_sub(null_half);
+    let null_end = (c + null_half).min(inner_w - 1);
+
+    for i in null_start..=null_end {
+        let t = (i.saturating_sub(ref_l)) as f64 / span;
+        let baseline = v_l + t * (v_r - v_l);
+        let h = (i as u32).wrapping_mul(2654435761u32);
+        let noise = (h as f64 / u32::MAX as f64 - 0.5) * noise_amp;
+        data[i] = (baseline + noise).max(0.0) as u64;
+    }
+}
+
+fn render_spectrum(
+    frame: &mut Frame,
+    bins: &[f32],
+    sample_rate: u32,
+    is_stereo: bool,
+    dc_suppress: bool,
+    area: Rect,
+) {
     let inner_w = area.width.saturating_sub(2) as usize;
     if inner_w == 0 {
         return;
     }
 
-    let (display_bins, title) = if is_stereo {
+    let (display_bins, bw_label) = if is_stereo {
         let bw_khz = sample_rate / 2 / 1000;
-        (bins, format!(" Spectrum ±{bw_khz} kHz "))
+        (bins, format!("±{bw_khz} kHz"))
     } else {
         let bw_khz = sample_rate / 2 / 1000;
-        (
-            &bins[..FFT_SIZE / 2],
-            format!(" Audio 0\u{2013}{bw_khz} kHz "),
-        )
+        (&bins[..FFT_SIZE / 2], format!("0\u{2013}{bw_khz} kHz"))
+    };
+
+    let dc_label = if dc_suppress { " DC∅" } else { "" };
+    let title = if is_stereo {
+        format!(" Spectrum {bw_label}{dc_label} ")
+    } else {
+        format!(" Audio {bw_label} ")
     };
 
     let n = display_bins.len();
@@ -286,46 +332,15 @@ fn render_spectrum(frame: &mut Frame, bins: &[f32], sample_rate: u32, is_stereo:
         })
         .collect();
 
-    // Suppress LO leakage / phase-noise pedestal at center frequency.
-    // Null zone is ≈±4% of display width; filled with interpolated baseline plus
-    // per-column stable pseudo-random noise that mimics surrounding spectrum texture.
-    if is_stereo && inner_w > 30 {
-        let c = inner_w / 2;
-        let null_half = (inner_w / 24).max(3);
-        let ref_l = c.saturating_sub(null_half + 8);
-        let ref_r = (c + null_half + 8).min(inner_w - 1);
-
-        // Noise amplitude from surrounding columns (left context only for simplicity)
-        let ctx_start = ref_l.saturating_sub(8);
-        let noise_amp = if ref_l > ctx_start {
-            let ctx = &data[ctx_start..ref_l];
-            let mn = ctx.iter().cloned().min().unwrap_or(0);
-            let mx = ctx.iter().cloned().max().unwrap_or(0);
-            mx.saturating_sub(mn) as f64 * 0.75
-        } else {
-            3.0
-        };
-
-        let v_l = data[ref_l] as f64;
-        let v_r = data[ref_r] as f64;
-        let span = (ref_r - ref_l) as f64;
-        let null_start = c.saturating_sub(null_half);
-        let null_end = (c + null_half).min(inner_w - 1);
-
-        for i in null_start..=null_end {
-            let t = (i.saturating_sub(ref_l)) as f64 / span;
-            let baseline = v_l + t * (v_r - v_l);
-            // Stable per-column hash — same value every frame, no flicker
-            let h = (i as u32).wrapping_mul(2654435761u32);
-            let noise = (h as f64 / u32::MAX as f64 - 0.5) * noise_amp;
-            data[i] = (baseline + noise).max(0.0) as u64;
-        }
+    if is_stereo && dc_suppress {
+        suppress_lo_spike(&mut data);
     }
 
     frame.render_widget(
         Sparkline::default()
             .block(Block::default().borders(Borders::ALL).title(title))
             .data(&data)
+            .max(100)
             .style(Style::default().fg(Color::Green)),
         area,
     );
