@@ -40,7 +40,14 @@ pub fn draw(
     if let Some((bins, sample_rate, is_stereo)) = iq {
         let stereo = is_stereo.lock().map(|v| *v).unwrap_or(false);
         if let Ok(data) = bins.lock() {
-            render_spectrum(frame, &data, *sample_rate, stereo, state.dc_suppress, chunks[4]);
+            render_spectrum(
+                frame,
+                &data,
+                *sample_rate,
+                stereo,
+                state.dc_suppress,
+                chunks[4],
+            );
         }
         render_error_log(frame, state, chunks[5]);
     } else {
@@ -245,7 +252,9 @@ fn render_help(frame: &mut Frame, area: Rect) {
     let lines = vec![
         Line::from("  ←/→  tune   ↑/↓  step   +/-  ±1 MHz   [/]  band"),
         Line::from("  m  mode    f  filter   p  preamp   a  att    s  split   t  TX"),
-        Line::from("  c  cmr     v  VOX      n  NR        b  NB     x  notch  o  mon   d  DIF   z  DC∅"),
+        Line::from(
+            "  c  cmr     v  VOX      n  NR        b  NB     x  notch  o  mon   d  DIF   z  DC∅",
+        ),
         Line::from("  q / Ctrl+C  quit"),
     ];
 
@@ -281,12 +290,17 @@ fn suppress_lo_spike(data: &mut [u64]) {
     let null_start = c.saturating_sub(null_half);
     let null_end = (c + null_half).min(inner_w - 1);
 
-    for i in null_start..=null_end {
+    for (i, slot) in data
+        .iter_mut()
+        .enumerate()
+        .take(null_end + 1)
+        .skip(null_start)
+    {
         let t = (i.saturating_sub(ref_l)) as f64 / span;
         let baseline = v_l + t * (v_r - v_l);
         let h = (i as u32).wrapping_mul(2654435761u32);
         let noise = (h as f64 / u32::MAX as f64 - 0.5) * noise_amp;
-        data[i] = (baseline + noise).max(0.0) as u64;
+        *slot = (baseline + noise).max(0.0) as u64;
     }
 }
 

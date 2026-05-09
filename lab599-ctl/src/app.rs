@@ -24,8 +24,9 @@ pub fn run(args: &Args) -> Result<()> {
     let port_path = match args.port.as_deref() {
         Some(p) => p,
         None => {
-            detected = auto_detect_port()
-                .ok_or_else(|| anyhow::anyhow!("TX-500 not found — use --port to specify manually"))?;
+            detected = auto_detect_port().ok_or_else(|| {
+                anyhow::anyhow!("TX-500 not found — use --port to specify manually")
+            })?;
             eprintln!("Auto-detected TX-500 on {detected}");
             detected.as_str()
         }

@@ -21,14 +21,17 @@ pub fn auto_detect_port() -> Option<String> {
             }
         }
     }
-    serialport::available_ports().ok()?.into_iter().find_map(|p| {
-        if let serialport::SerialPortType::UsbPort(info) = p.port_type {
-            if info.vid == 0x0403 && info.pid == 0x6001 {
-                return Some(p.port_name);
+    serialport::available_ports()
+        .ok()?
+        .into_iter()
+        .find_map(|p| {
+            if let serialport::SerialPortType::UsbPort(info) = p.port_type {
+                if info.vid == 0x0403 && info.pid == 0x6001 {
+                    return Some(p.port_name);
+                }
             }
-        }
-        None
-    })
+            None
+        })
 }
 
 pub fn open_port(path: &str, baud: u32) -> Result<Box<dyn SerialPort>> {
