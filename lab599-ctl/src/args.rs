@@ -30,4 +30,8 @@ pub struct Args {
     /// IQ capture sample rate in Hz (44100–192000)
     #[arg(long, default_value = "192000")]
     pub iq_rate: u32,
+
+    /// Unix socket path for RX audio streaming (created when --audio is active)
+    #[arg(long, default_value = "/tmp/lab599-rx.sock")]
+    pub rx_socket: std::path::PathBuf,
 }

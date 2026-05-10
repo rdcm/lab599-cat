@@ -14,14 +14,11 @@ format:
 lint:
 	cargo clippy --release --all-targets
 
-run:
-	./target/release/lab599
-
 run-iq:
 	./target/release/lab599 --iq-device "Sound Blaster Play! 3, USB Audio" --iq-rate 48000
 
 run-audio:
-	./target/release/lab599 --audio pipewire
+	./target/release/lab599 --audio "PipeWire"
 
 list-audio:
 	./target/release/lab599 --list-audio

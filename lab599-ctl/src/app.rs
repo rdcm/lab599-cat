@@ -6,7 +6,7 @@ use lab599_cat::CatDriver;
 
 use crate::{
     args::Args,
-    audio::{find_all_audio_devices, find_audio_device, list_audio_devices, start_audio},
+    audio::{find_all_audio_devices, find_audio_device, list_audio_devices, start_audio, start_rx_socket},
     radio::{auto_detect_port, open_port, poll_radio},
     spectrum::{start_iq_capture, SpectrumBins},
     state::{RadioState, Step},
@@ -40,6 +40,18 @@ pub fn run(args: &Args) -> Result<()> {
         .as_deref()
         .and_then(find_audio_device)
         .and_then(|d| start_audio(d).ok());
+
+    if let Some(ref loopback) = _audio {
+        match start_rx_socket(&args.rx_socket, loopback.clients.clone()) {
+            Ok(()) => eprintln!(
+                "RX socket: {}\n  → nc -U {} | aplay -f FLOAT_LE -r {} -c 1",
+                args.rx_socket.display(),
+                args.rx_socket.display(),
+                loopback.sample_rate,
+            ),
+            Err(e) => eprintln!("RX socket error: {e}"),
+        }
+    }
 
     let mut state = RadioState {
         audio_active: _audio.is_some(),

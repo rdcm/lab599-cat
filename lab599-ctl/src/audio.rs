@@ -1,4 +1,8 @@
 use std::collections::VecDeque;
+use std::io::Write;
+use std::os::unix::net::UnixListener;
+use std::path::Path;
+use std::sync::mpsc::{self, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
@@ -7,9 +11,13 @@ use cpal::{
     SampleFormat,
 };
 
+type Clients = Arc<Mutex<Vec<SyncSender<Vec<f32>>>>>;
+
 pub struct AudioLoopback {
     _input: cpal::Stream,
     _output: cpal::Stream,
+    pub clients: Clients,
+    pub sample_rate: u32,
 }
 
 pub fn list_audio_devices() {
@@ -64,25 +72,35 @@ pub fn start_audio(input_device: cpal::Device) -> Result<AudioLoopback> {
     let in_cfg = input_device.default_input_config()?;
     let out_cfg = output_device.default_output_config()?;
 
+    let sample_rate = in_cfg.sample_rate();
+    let in_channels = in_cfg.channels() as usize;
+
     let buf: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
     let buf_in = buf.clone();
     let buf_out = buf.clone();
 
-    let in_channels = in_cfg.channels() as usize;
+    let clients: Clients = Arc::new(Mutex::new(Vec::new()));
+    let clients_in = clients.clone();
+
     let err_fn = |e: cpal::StreamError| eprintln!("audio error: {e}");
 
     let input_stream = match in_cfg.sample_format() {
         SampleFormat::F32 => input_device.build_input_stream(
             &in_cfg.into(),
-            move |data: &[f32], _| push_mono(data, in_channels, &buf_in),
+            move |data: &[f32], _| {
+                let mono = downmix_f32(data, in_channels);
+                push_to_buf(&mono, &buf_in);
+                broadcast(&mono, &clients_in);
+            },
             err_fn,
             None,
         )?,
         SampleFormat::I16 => input_device.build_input_stream(
             &in_cfg.into(),
             move |data: &[i16], _| {
-                let f: Vec<f32> = data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
-                push_mono(&f, in_channels, &buf_in);
+                let mono = downmix_i16(data, in_channels);
+                push_to_buf(&mono, &buf_in);
+                broadcast(&mono, &clients_in);
             },
             err_fn,
             None,
@@ -90,11 +108,9 @@ pub fn start_audio(input_device: cpal::Device) -> Result<AudioLoopback> {
         SampleFormat::U16 => input_device.build_input_stream(
             &in_cfg.into(),
             move |data: &[u16], _| {
-                let f: Vec<f32> = data
-                    .iter()
-                    .map(|&s| (s as f32 / u16::MAX as f32) * 2.0 - 1.0)
-                    .collect();
-                push_mono(&f, in_channels, &buf_in);
+                let mono = downmix_u16(data, in_channels);
+                push_to_buf(&mono, &buf_in);
+                broadcast(&mono, &clients_in);
             },
             err_fn,
             None,
@@ -120,13 +136,52 @@ pub fn start_audio(input_device: cpal::Device) -> Result<AudioLoopback> {
     Ok(AudioLoopback {
         _input: input_stream,
         _output: output_stream,
+        clients,
+        sample_rate,
     })
 }
 
-fn push_mono(data: &[f32], channels: usize, buf: &Mutex<VecDeque<f32>>) {
-    let mono = data
-        .chunks(channels)
-        .map(|ch| ch.iter().sum::<f32>() / ch.len() as f32);
+pub fn start_rx_socket(path: &Path, clients: Clients) -> Result<()> {
+    let _ = std::fs::remove_file(path);
+    let listener = UnixListener::bind(path)?;
+
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            if let Ok(mut socket) = stream {
+                let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(32);
+                clients.lock().unwrap().push(tx);
+                std::thread::spawn(move || {
+                    for chunk in rx {
+                        for sample in chunk {
+                            if socket.write_all(&sample.to_le_bytes()).is_err() {
+                                return;
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    });
+
+    Ok(())
+}
+
+fn broadcast(mono: &[f32], clients: &Mutex<Vec<SyncSender<Vec<f32>>>>) {
+    let mut list = match clients.lock() {
+        Ok(l) => l,
+        Err(_) => return,
+    };
+    if list.is_empty() {
+        return;
+    }
+    let chunk = mono.to_vec();
+    list.retain(|tx| match tx.try_send(chunk.clone()) {
+        Ok(_) | Err(TrySendError::Full(_)) => true,
+        Err(TrySendError::Disconnected(_)) => false,
+    });
+}
+
+fn push_to_buf(mono: &[f32], buf: &Mutex<VecDeque<f32>>) {
     if let Ok(mut b) = buf.lock() {
         b.extend(mono);
         let len = b.len();
@@ -134,6 +189,31 @@ fn push_mono(data: &[f32], channels: usize, buf: &Mutex<VecDeque<f32>>) {
             b.drain(..len - 96_000);
         }
     }
+}
+
+fn downmix_f32(data: &[f32], channels: usize) -> Vec<f32> {
+    data.chunks(channels)
+        .map(|ch| ch.iter().sum::<f32>() / ch.len() as f32)
+        .collect()
+}
+
+fn downmix_i16(data: &[i16], channels: usize) -> Vec<f32> {
+    data.chunks(channels)
+        .map(|ch| {
+            ch.iter().map(|&s| s as f32 / i16::MAX as f32).sum::<f32>() / ch.len() as f32
+        })
+        .collect()
+}
+
+fn downmix_u16(data: &[u16], channels: usize) -> Vec<f32> {
+    data.chunks(channels)
+        .map(|ch| {
+            ch.iter()
+                .map(|&s| (s as f32 / u16::MAX as f32) * 2.0 - 1.0)
+                .sum::<f32>()
+                / ch.len() as f32
+        })
+        .collect()
 }
 
 fn drain_to_output(data: &mut [f32], channels: usize, buf: &Mutex<VecDeque<f32>>) {
