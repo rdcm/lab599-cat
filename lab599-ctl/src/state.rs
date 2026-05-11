@@ -1,6 +1,29 @@
-use std::time::Instant;
+use std::{fmt, time::Instant};
 
 use lab599_cat::Mode;
+
+#[derive(Clone, Default)]
+pub struct Model {
+    pub name: String,
+}
+
+impl From<u16> for Model {
+    fn from(id: u16) -> Self {
+        Self {
+            name: match id {
+                500 => "TX-500".to_string(),
+                505 => "TX-500MP".to_string(),
+                n => format!("Lab599 (ID:{n})"),
+            },
+        }
+    }
+}
+
+impl fmt::Display for Model {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.name)
+    }
+}
 
 pub const MAX_ERRORS: usize = 8;
 
@@ -68,7 +91,7 @@ impl Step {
 
 #[derive(Clone)]
 pub struct RadioState {
-    pub model: String,
+    pub model: Model,
     pub frequency: u64,
     pub mode: Option<Mode>,
     pub filter: u8,
@@ -99,7 +122,7 @@ pub struct RadioState {
 impl Default for RadioState {
     fn default() -> Self {
         Self {
-            model: String::new(),
+            model: Model::default(),
             frequency: 0,
             mode: None,
             filter: 0,

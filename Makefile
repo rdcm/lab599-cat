@@ -1,3 +1,9 @@
+REMOTE_HOST  ?=
+REMOTE_BIN   ?=
+REMOTE_AUDIO ?= PipeWire
+RX_SOCK      := /tmp/lab599-rx.sock
+RX_RATE      ?= 44100
+
 build:
 	cargo build --release --workspace
 
@@ -19,6 +25,15 @@ run-iq:
 
 run-audio:
 	./target/release/lab599 --audio "PipeWire"
+
+# make remote-connect REMOTE_HOST=user@other-host RX_RATE=48000
+remote-connect:
+	@[ -n "$(REMOTE_HOST)" ] || { echo "error: REMOTE_HOST is required, e.g. make remote-connect REMOTE_HOST=user@host REMOTE_BIN=/path/to/lab599"; exit 1; }
+	@[ -n "$(REMOTE_BIN)" ]  || { echo "error: REMOTE_BIN is required, e.g. make remote-connect REMOTE_HOST=user@host REMOTE_BIN=/path/to/lab599"; exit 1; }
+	rm -f $(RX_SOCK) && ssh -t -L $(RX_SOCK):$(RX_SOCK) $(REMOTE_HOST) "$(REMOTE_BIN) --audio '$(REMOTE_AUDIO)'"
+
+remote-listen:
+	nc -U $(RX_SOCK) | aplay -f FLOAT_LE -r $(RX_RATE) -c 1
 
 list-audio:
 	./target/release/lab599 --list-audio

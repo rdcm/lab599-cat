@@ -13,11 +13,36 @@ use cpal::{
 
 type Clients = Arc<Mutex<Vec<SyncSender<Vec<f32>>>>>;
 
-pub struct AudioLoopback {
+pub struct Audio {
     _input: cpal::Stream,
     _output: cpal::Stream,
-    pub clients: Clients,
-    pub sample_rate: u32,
+}
+
+impl Audio {
+    pub fn new(device_name: &str, rx_socket: &Path) -> Option<Self> {
+        let device = find_audio_device(device_name)?;
+        let loopback = start_audio(device).ok()?;
+        let sample_rate = loopback.sample_rate;
+        match start_rx_socket(rx_socket, loopback.clients) {
+            Ok(()) => eprintln!(
+                "RX socket: {0}\n  → nc -U {0} | aplay -f FLOAT_LE -r {1} -c 1",
+                rx_socket.display(),
+                sample_rate,
+            ),
+            Err(e) => eprintln!("RX socket error: {e}"),
+        }
+        Some(Self {
+            _input: loopback._input,
+            _output: loopback._output,
+        })
+    }
+}
+
+struct AudioLoopback {
+    _input: cpal::Stream,
+    _output: cpal::Stream,
+    clients: Clients,
+    sample_rate: u32,
 }
 
 pub fn list_audio_devices() {
@@ -32,7 +57,7 @@ pub fn list_audio_devices() {
     }
 }
 
-pub fn find_audio_device(name_pattern: &str) -> Option<cpal::Device> {
+fn find_audio_device(name_pattern: &str) -> Option<cpal::Device> {
     let host = cpal::default_host();
     host.input_devices().ok()?.find(|d| {
         d.description()
@@ -45,25 +70,7 @@ pub fn find_audio_device(name_pattern: &str) -> Option<cpal::Device> {
     })
 }
 
-pub fn find_all_audio_devices(name_pattern: &str) -> Vec<cpal::Device> {
-    let host = cpal::default_host();
-    host.input_devices()
-        .map(|devs| {
-            devs.filter(|d| {
-                d.description()
-                    .map(|n| {
-                        n.name()
-                            .to_lowercase()
-                            .contains(&name_pattern.to_lowercase())
-                    })
-                    .unwrap_or(false)
-            })
-            .collect()
-        })
-        .unwrap_or_default()
-}
-
-pub fn start_audio(input_device: cpal::Device) -> Result<AudioLoopback> {
+fn start_audio(input_device: cpal::Device) -> Result<AudioLoopback> {
     let host = cpal::default_host();
     let output_device = host
         .default_output_device()
@@ -141,25 +148,23 @@ pub fn start_audio(input_device: cpal::Device) -> Result<AudioLoopback> {
     })
 }
 
-pub fn start_rx_socket(path: &Path, clients: Clients) -> Result<()> {
+fn start_rx_socket(path: &Path, clients: Clients) -> Result<()> {
     let _ = std::fs::remove_file(path);
     let listener = UnixListener::bind(path)?;
 
     std::thread::spawn(move || {
-        for stream in listener.incoming() {
-            if let Ok(mut socket) = stream {
-                let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(32);
-                clients.lock().unwrap().push(tx);
-                std::thread::spawn(move || {
-                    for chunk in rx {
-                        for sample in chunk {
-                            if socket.write_all(&sample.to_le_bytes()).is_err() {
-                                return;
-                            }
+        for mut socket in listener.incoming().flatten() {
+            let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(32);
+            clients.lock().unwrap().push(tx);
+            std::thread::spawn(move || {
+                for chunk in rx {
+                    for sample in chunk {
+                        if socket.write_all(&sample.to_le_bytes()).is_err() {
+                            return;
                         }
                     }
-                });
-            }
+                }
+            });
         }
     });
 
@@ -199,9 +204,7 @@ fn downmix_f32(data: &[f32], channels: usize) -> Vec<f32> {
 
 fn downmix_i16(data: &[i16], channels: usize) -> Vec<f32> {
     data.chunks(channels)
-        .map(|ch| {
-            ch.iter().map(|&s| s as f32 / i16::MAX as f32).sum::<f32>() / ch.len() as f32
-        })
+        .map(|ch| ch.iter().map(|&s| s as f32 / i16::MAX as f32).sum::<f32>() / ch.len() as f32)
         .collect()
 }
 

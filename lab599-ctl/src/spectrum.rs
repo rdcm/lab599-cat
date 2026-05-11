@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Result;
 use cpal::{
-    traits::{DeviceTrait, StreamTrait},
+    traits::{DeviceTrait, HostTrait, StreamTrait},
     SampleFormat, StreamConfig,
 };
 use rustfft::{num_complex::Complex, FftPlanner};
@@ -20,6 +20,37 @@ pub struct IqCapture {
     pub bins: SpectrumBins,
     pub is_stereo: Arc<Mutex<bool>>,
     pub errors: Arc<Mutex<Vec<String>>>,
+}
+
+impl IqCapture {
+    pub fn new(name: &str, sample_rate: u32) -> Result<Self> {
+        let devices = find_devices_by_name(name);
+        if devices.is_empty() {
+            anyhow::bail!("device not found: {name}");
+        }
+        let mut last_err = anyhow::anyhow!("no devices tried");
+        for dev in devices {
+            match start_iq_capture(dev, sample_rate) {
+                Ok(capture) => return Ok(capture),
+                Err(e) => last_err = e,
+            }
+        }
+        Err(last_err)
+    }
+}
+
+fn find_devices_by_name(name: &str) -> Vec<cpal::Device> {
+    let host = cpal::default_host();
+    host.input_devices()
+        .map(|devs| {
+            devs.filter(|d| {
+                d.description()
+                    .map(|n| n.name().to_lowercase().contains(&name.to_lowercase()))
+                    .unwrap_or(false)
+            })
+            .collect()
+        })
+        .unwrap_or_default()
 }
 
 pub fn start_iq_capture(device: cpal::Device, sample_rate: u32) -> Result<IqCapture> {
