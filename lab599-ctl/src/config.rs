@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 
-use crate::{args::Args, radio::auto_detect_port};
+use crate::args::Args;
+use crate::hardware::radio::auto_detect_port;
 
 pub struct Config {
     pub port: String,

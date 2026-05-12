@@ -1,4 +1,4 @@
-pub mod component;
+pub mod app_bar;
 pub mod error_log;
 pub mod radio_help;
 pub mod radio_info;

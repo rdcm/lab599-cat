@@ -14,6 +14,7 @@ tests:
 	cargo nextest run --workspace --features lab599-cat/tx500mp --exclude lab599-ctl
 
 format:
+	cargo fix --allow-dirty
 	cargo sort --workspace
 	cargo fmt --all
 

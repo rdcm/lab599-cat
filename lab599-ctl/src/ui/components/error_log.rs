@@ -1,15 +1,15 @@
 use crate::hardware::state::RadioState;
 use crate::ui::components::component::Component;
-use crate::ui::widgets::radio_help::RadioHelpWidget;
+use crate::ui::widgets::error_log::ErrorLogWidget;
 use crossterm::event::KeyEvent;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::Frame;
 
-pub struct RadioHelpComponent;
+pub struct ErrorLogComponent;
 
-impl Component for RadioHelpComponent {
+impl Component for ErrorLogComponent {
     fn constraint(&self) -> Constraint {
-        Constraint::Percentage(50)
+        Constraint::Fill(1)
     }
 
     fn render(
@@ -19,6 +19,6 @@ impl Component for RadioHelpComponent {
         state: &RadioState,
         _key: Option<KeyEvent>,
     ) {
-        frame.render_widget(RadioHelpWidget::from(state), area);
+        frame.render_widget(ErrorLogWidget::from(state), area);
     }
 }

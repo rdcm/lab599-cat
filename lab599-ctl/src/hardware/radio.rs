@@ -4,7 +4,8 @@ use anyhow::{Context, Result};
 use lab599_cat::{CatDriver, CatError, MeterType};
 use serialport::SerialPort;
 
-use crate::{events::action::Action, state::RadioState};
+use crate::hardware::state::RadioState;
+use crate::ui::pages::page::Action;
 
 pub struct Radio {
     device: CatDriver<Box<dyn SerialPort>>,
@@ -56,7 +57,6 @@ impl Radio {
                     state.log_error(format!("BD: {e}"));
                 }
             }
-            Action::Quit => {}
         }
     }
 

@@ -1,17 +1,13 @@
 mod app;
 mod args;
-mod audio;
 mod config;
-mod events;
-mod pages;
-mod radio;
-mod spectrum;
-mod state;
+mod hardware;
+mod input;
 mod ui;
 
+use crate::hardware::audio::list_audio_devices;
 use app::App;
 use args::Args;
-use audio::list_audio_devices;
 use clap::Parser;
 use config::Config;
 

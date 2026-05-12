@@ -1,34 +1,24 @@
-use ratatui::{
-    layout::{Constraint, Rect},
-    text::Line,
-    widgets::{Block, Borders, Paragraph},
-    Frame,
-};
+use crate::hardware::state::RadioState;
+use crate::ui::components::component::Component;
+use crate::ui::widgets::tui_help::TuiHelpWidget;
+use crossterm::event::KeyEvent;
+use ratatui::layout::{Constraint, Rect};
+use ratatui::Frame;
 
-use crate::{state::RadioState, ui::component::Component};
+pub struct TuiHelpComponent;
 
-use super::helpers::entry;
-
-pub struct TuiHelp;
-
-impl Component for TuiHelp {
+impl Component for TuiHelpComponent {
     fn constraint(&self) -> Constraint {
         Constraint::Percentage(50)
     }
 
-    fn render(&mut self, frame: &mut Frame, area: Rect, _state: &RadioState) {
-        let lines = vec![
-            entry("Tab      ", "Switch to next page"),
-            entry("q        ", "Quit"),
-            entry("Ctrl+C   ", "Quit"),
-            Line::from(""),
-            entry("z        ", "Toggle DC spike suppression"),
-        ];
-
-        frame.render_widget(
-            Paragraph::new(lines)
-                .block(Block::default().borders(Borders::ALL).title(" Navigation ")),
-            area,
-        );
+    fn render(
+        &mut self,
+        frame: &mut Frame,
+        area: Rect,
+        state: &RadioState,
+        _key: Option<KeyEvent>,
+    ) {
+        frame.render_widget(TuiHelpWidget::from(state), area);
     }
 }
