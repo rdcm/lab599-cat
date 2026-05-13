@@ -14,34 +14,14 @@ pub const FFT_SIZE: usize = 2048;
 
 pub type SpectrumBins = Arc<Mutex<Vec<f32>>>;
 
-pub struct IqCapture {
-    _stream: cpal::Stream,
-    pub sample_rate: u32,
-    pub bins: SpectrumBins,
-    pub is_stereo: Arc<Mutex<bool>>,
-    pub errors: Arc<Mutex<Vec<String>>>,
-}
-
-impl IqCapture {
-    pub fn new(name: &str, sample_rate: u32) -> Result<Self> {
-        let devices = find_devices_by_name(name);
-        if devices.is_empty() {
-            anyhow::bail!("device not found: {name}");
-        }
-        let mut last_err = anyhow::anyhow!("no devices tried");
-        for dev in devices {
-            match start_iq_capture(dev, sample_rate) {
-                Ok(capture) => return Ok(capture),
-                Err(e) => last_err = e,
-            }
-        }
-        Err(last_err)
-    }
-}
-
-fn find_devices_by_name(name: &str) -> Vec<cpal::Device> {
+pub(crate) fn start_iq_stream(
+    name: &str,
+    sample_rate: u32,
+    errors: Arc<Mutex<Vec<String>>>,
+) -> Result<(cpal::Stream, SpectrumBins, Arc<Mutex<bool>>)> {
     let host = cpal::default_host();
-    host.input_devices()
+    let devices: Vec<cpal::Device> = host
+        .input_devices()
         .map(|devs| {
             devs.filter(|d| {
                 d.description()
@@ -50,12 +30,26 @@ fn find_devices_by_name(name: &str) -> Vec<cpal::Device> {
             })
             .collect()
         })
-        .unwrap_or_default()
+        .unwrap_or_default();
+    if devices.is_empty() {
+        anyhow::bail!("device not found: {name}");
+    }
+    let mut last_err = anyhow::anyhow!("no devices tried");
+    for dev in devices {
+        match build_iq_stream(dev, sample_rate, errors.clone()) {
+            Ok(result) => return Ok(result),
+            Err(e) => last_err = e,
+        }
+    }
+    Err(last_err)
 }
 
-pub fn start_iq_capture(device: cpal::Device, sample_rate: u32) -> Result<IqCapture> {
+fn build_iq_stream(
+    device: cpal::Device,
+    sample_rate: u32,
+    errors: Arc<Mutex<Vec<String>>>,
+) -> Result<(cpal::Stream, SpectrumBins, Arc<Mutex<bool>>)> {
     let bins: SpectrumBins = Arc::new(Mutex::new(vec![-100.0f32; FFT_SIZE]));
-    let errors: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
 
     let cfg_range = device
         .supported_input_configs()?
@@ -80,17 +74,11 @@ pub fn start_iq_capture(device: cpal::Device, sample_rate: u32) -> Result<IqCapt
         channels,
         bins.clone(),
         is_stereo.clone(),
-        errors.clone(),
+        errors,
     )?;
     stream.play()?;
 
-    Ok(IqCapture {
-        _stream: stream,
-        sample_rate,
-        bins,
-        is_stereo,
-        errors,
-    })
+    Ok((stream, bins, is_stereo))
 }
 
 fn build_stream(

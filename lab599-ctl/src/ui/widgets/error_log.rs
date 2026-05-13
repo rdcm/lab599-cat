@@ -1,4 +1,4 @@
-use crate::hardware::state::RadioState;
+use crate::hardware::radio_state::RadioState;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,

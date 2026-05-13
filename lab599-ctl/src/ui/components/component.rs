@@ -4,9 +4,15 @@ use ratatui::{
     Frame,
 };
 
-use crate::hardware::state::RadioState;
+use crate::app_state::AppState;
 
 pub trait Component {
     fn constraint(&self) -> Constraint;
-    fn render(&mut self, frame: &mut Frame, area: Rect, state: &RadioState, key: Option<KeyEvent>);
+    fn render(
+        &mut self,
+        frame: &mut Frame,
+        area: Rect,
+        app_state: &AppState,
+        key: Option<KeyEvent>,
+    );
 }

@@ -2,8 +2,8 @@ use anyhow::Result;
 use lab599_cat::{CatDriver, MeterType};
 use serialport::SerialPort;
 
+use crate::hardware::radio_state::{Model, RadioState};
 use crate::hardware::serial::Serial;
-use crate::hardware::state::{Model, RadioState};
 
 macro_rules! poll {
     ($state:expr, $call:expr, $field:expr, $tag:literal) => {

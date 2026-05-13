@@ -1,7 +1,7 @@
 use crossterm::event::KeyEvent;
 use ratatui::{layout::Rect, Frame};
 
-use crate::hardware::state::RadioState;
+use crate::app_state::AppState;
 
 pub trait Page {
     fn name(&self) -> &'static str;
@@ -9,7 +9,7 @@ pub trait Page {
         &mut self,
         frame: &mut Frame,
         area: Rect,
-        state: &RadioState,
+        app_state: &AppState,
         key: Option<KeyEvent>,
     ) -> Option<Action>;
 }

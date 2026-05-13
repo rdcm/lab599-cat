@@ -1,5 +1,5 @@
-use crate::hardware::spectrum::{IqCapture, SpectrumBins};
-use crate::hardware::state::RadioState;
+use crate::app_state::AppState;
+use crate::hardware::spectrum::SpectrumBins;
 use crate::ui::components::component::Component;
 use crate::ui::widgets::spectrum::SpectrumWidget;
 use crossterm::event::KeyEvent;
@@ -14,18 +14,23 @@ pub struct SpectrumComponent {
 }
 
 impl SpectrumComponent {
-    pub fn new(iq: Option<&IqCapture>) -> Self {
-        match iq {
-            Some(capture) => Self {
-                bins: Some(capture.bins.clone()),
-                sample_rate: capture.sample_rate,
-                is_stereo: Some(capture.is_stereo.clone()),
-            },
-            None => Self {
-                bins: None,
-                sample_rate: 0,
-                is_stereo: None,
-            },
+    pub fn new() -> Self {
+        Self {
+            bins: None,
+            sample_rate: 0,
+            is_stereo: None,
+        }
+    }
+
+    fn ensure_init(&mut self, app_state: &AppState) {
+        if self.bins.is_some() {
+            return;
+        }
+        let audio = &app_state.audio;
+        if let (Some(bins), Some(is_stereo)) = (audio.bins(), audio.is_stereo()) {
+            self.bins = Some(bins.clone());
+            self.sample_rate = audio.iq_sample_rate();
+            self.is_stereo = Some(is_stereo.clone());
         }
     }
 }
@@ -43,9 +48,10 @@ impl Component for SpectrumComponent {
         &mut self,
         frame: &mut Frame,
         area: Rect,
-        state: &RadioState,
+        app_state: &AppState,
         _key: Option<KeyEvent>,
     ) {
+        self.ensure_init(app_state);
         let (Some(bins), Some(is_stereo)) = (&self.bins, &self.is_stereo) else {
             return;
         };
@@ -54,7 +60,7 @@ impl Component for SpectrumComponent {
                 bins: bins.clone(),
                 sample_rate: self.sample_rate,
                 is_stereo: is_stereo.clone(),
-                dc_suppress: state.dc_suppress,
+                dc_suppress: app_state.radio.state().dc_suppress,
             },
             area,
         );

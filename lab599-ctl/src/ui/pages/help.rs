@@ -5,7 +5,7 @@ use ratatui::{
 };
 
 use super::page::{Action, Page};
-use crate::hardware::state::RadioState;
+use crate::app_state::AppState;
 use crate::ui::components::component::Component;
 use crate::ui::components::radio_help::RadioHelpComponent;
 use crate::ui::components::tui_help::TuiHelpComponent;
@@ -33,15 +33,15 @@ impl Page for HelpPage {
         &mut self,
         frame: &mut Frame,
         area: Rect,
-        state: &RadioState,
+        app_state: &AppState,
         _key: Option<KeyEvent>,
     ) -> Option<Action> {
         let [left, right] =
             Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
                 .areas(area);
 
-        self.radio_help.render(frame, left, state, None);
-        self.tui_help.render(frame, right, state, None);
+        self.radio_help.render(frame, left, app_state, None);
+        self.tui_help.render(frame, right, app_state, None);
         None
     }
 }

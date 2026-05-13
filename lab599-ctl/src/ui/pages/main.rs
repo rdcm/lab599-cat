@@ -5,8 +5,7 @@ use ratatui::{
 };
 
 use super::page::{Action, Page};
-use crate::hardware::spectrum::IqCapture;
-use crate::hardware::state::RadioState;
+use crate::app_state::AppState;
 use crate::ui::components::component::Component;
 use crate::ui::components::radio_info::RadioInfoComponent;
 use crate::ui::components::smeter::SmeterComponent;
@@ -22,12 +21,12 @@ pub struct MainPage {
 }
 
 impl MainPage {
-    pub fn new(iq: Option<&IqCapture>) -> Self {
+    pub fn new() -> Self {
         Self {
             info: RadioInfoComponent,
             smeter: SmeterComponent,
             flags: StatusFlagsComponent,
-            spectrum: SpectrumComponent::new(iq),
+            spectrum: SpectrumComponent::new(),
         }
     }
 }
@@ -41,7 +40,7 @@ impl Page for MainPage {
         &mut self,
         frame: &mut Frame,
         area: Rect,
-        state: &RadioState,
+        app_state: &AppState,
         key: Option<KeyEvent>,
     ) -> Option<Action> {
         let areas = Layout::vertical([
@@ -52,10 +51,10 @@ impl Page for MainPage {
         ])
         .split(area);
 
-        self.info.render(frame, areas[0], state, None);
-        self.smeter.render(frame, areas[1], state, None);
-        self.flags.render(frame, areas[2], state, None);
-        self.spectrum.render(frame, areas[3], state, None);
+        self.info.render(frame, areas[0], app_state, None);
+        self.smeter.render(frame, areas[1], app_state, None);
+        self.flags.render(frame, areas[2], app_state, None);
+        self.spectrum.render(frame, areas[3], app_state, None);
 
         key.and_then(map_key)
     }

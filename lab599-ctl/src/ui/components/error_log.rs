@@ -1,4 +1,4 @@
-use crate::hardware::state::RadioState;
+use crate::app_state::AppState;
 use crate::ui::components::component::Component;
 use crate::ui::widgets::error_log::ErrorLogWidget;
 use crossterm::event::KeyEvent;
@@ -16,9 +16,9 @@ impl Component for ErrorLogComponent {
         &mut self,
         frame: &mut Frame,
         area: Rect,
-        state: &RadioState,
+        app_state: &AppState,
         _key: Option<KeyEvent>,
     ) {
-        frame.render_widget(ErrorLogWidget::from(state), area);
+        frame.render_widget(ErrorLogWidget::from(app_state.radio.state()), area);
     }
 }

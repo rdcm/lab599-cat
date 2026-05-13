@@ -7,7 +7,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::hardware::state::RadioState;
+use crate::hardware::radio_state::RadioState;
 
 struct AppBarWidget {
     model: String,

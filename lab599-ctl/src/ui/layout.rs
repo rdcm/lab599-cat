@@ -1,6 +1,6 @@
 use ratatui::{layout::Rect, Frame};
 
-use crate::hardware::state::RadioState;
+use crate::hardware::radio_state::RadioState;
 use crate::ui::widgets::app_bar::AppBar;
 
 pub struct AppLayout;

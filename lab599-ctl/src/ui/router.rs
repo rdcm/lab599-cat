@@ -1,4 +1,3 @@
-use crate::hardware::spectrum::IqCapture;
 use crate::ui::pages::{help::HelpPage, logs::LogsPage, main::MainPage, page::Page};
 
 pub struct Router {
@@ -7,9 +6,9 @@ pub struct Router {
 }
 
 impl Router {
-    pub fn new(iq: Option<&IqCapture>) -> Self {
+    pub fn new() -> Self {
         let pages: Vec<Box<dyn Page>> = vec![
-            Box::new(MainPage::new(iq)),
+            Box::new(MainPage::new()),
             Box::new(HelpPage::new()),
             Box::new(LogsPage::new()),
         ];

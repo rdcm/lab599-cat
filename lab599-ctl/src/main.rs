@@ -1,11 +1,12 @@
 mod app;
+mod app_state;
 mod args;
 mod config;
 mod hardware;
 mod input;
 mod ui;
 
-use crate::hardware::audio::list_audio_devices;
+use crate::hardware::audio::Audio;
 use app::App;
 use args::Args;
 use clap::Parser;
@@ -16,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     if args.list_audio {
-        list_audio_devices();
+        Audio::list_devices();
         return Ok(());
     }
 

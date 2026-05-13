@@ -5,7 +5,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
-use crate::hardware::state::RadioState;
+use crate::hardware::radio_state::RadioState;
 use crate::ui::utils::entry;
 
 pub struct RadioHelpWidget;

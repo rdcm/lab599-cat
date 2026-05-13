@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
-use crate::hardware::state::RadioState;
+use crate::hardware::radio_state::RadioState;
 
 pub struct StatusFlagsWidget {
     preamp: bool,

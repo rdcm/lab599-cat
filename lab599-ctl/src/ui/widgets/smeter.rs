@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
-use crate::hardware::state::RadioState;
+use crate::hardware::radio_state::RadioState;
 
 const SMETER_TICKS: &[(&str, usize)] = &[
     ("1", 3),

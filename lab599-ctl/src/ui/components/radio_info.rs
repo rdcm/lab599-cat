@@ -1,4 +1,4 @@
-use crate::hardware::state::RadioState;
+use crate::app_state::AppState;
 use crate::ui::components::component::Component;
 use crate::ui::widgets::radio_info::RadioInfoWidget;
 use crossterm::event::KeyEvent;
@@ -16,9 +16,9 @@ impl Component for RadioInfoComponent {
         &mut self,
         frame: &mut Frame,
         area: Rect,
-        state: &RadioState,
+        app_state: &AppState,
         _key: Option<KeyEvent>,
     ) {
-        frame.render_widget(RadioInfoWidget::from(state), area);
+        frame.render_widget(RadioInfoWidget::from(app_state.radio.state()), area);
     }
 }

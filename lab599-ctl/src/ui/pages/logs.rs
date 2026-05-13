@@ -2,7 +2,7 @@ use crossterm::event::KeyEvent;
 use ratatui::{layout::Rect, Frame};
 
 use super::page::{Action, Page};
-use crate::hardware::state::RadioState;
+use crate::app_state::AppState;
 use crate::ui::components::component::Component;
 use crate::ui::components::error_log::ErrorLogComponent;
 
@@ -27,10 +27,10 @@ impl Page for LogsPage {
         &mut self,
         frame: &mut Frame,
         area: Rect,
-        state: &RadioState,
+        app_state: &AppState,
         _key: Option<KeyEvent>,
     ) -> Option<Action> {
-        self.log.render(frame, area, state, None);
+        self.log.render(frame, area, app_state, None);
         None
     }
 }
