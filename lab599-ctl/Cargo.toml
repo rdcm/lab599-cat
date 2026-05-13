@@ -16,3 +16,4 @@ lab599-cat = { workspace = true, features = ["tx500"] }
 ratatui    = { workspace = true }
 rustfft    = { workspace = true }
 serialport = { workspace = true }
+tokio      = { workspace = true }

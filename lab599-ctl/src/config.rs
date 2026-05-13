@@ -3,10 +3,9 @@ use std::path::PathBuf;
 use anyhow::Result;
 
 use crate::args::Args;
-use crate::hardware::radio::auto_detect_port;
 
 pub struct Config {
-    pub port: String,
+    pub port: Option<String>,
     pub baud: u32,
     pub audio_device: Option<String>,
     pub rx_socket: PathBuf,
@@ -17,16 +16,8 @@ pub struct Config {
 
 impl Config {
     pub fn from_args(args: &Args) -> Result<Self> {
-        let port = match args.port.clone() {
-            Some(p) => p,
-            None => {
-                let p = auto_detect_port()?;
-                eprintln!("Auto-detected TX-500 on {p}");
-                p
-            }
-        };
         Ok(Self {
-            port,
+            port: args.port.clone(),
             baud: args.baud,
             audio_device: args.audio.clone(),
             rx_socket: args.rx_socket.clone(),

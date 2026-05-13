@@ -17,3 +17,4 @@ ratatui    = "0.30.0"
 rustfft    = "6.2"
 serialport = "4.9.0"
 thiserror  = "2.0.18"
+tokio      = { version = "1", features = ["rt-multi-thread", "macros", "time"] }

@@ -11,7 +11,8 @@ use args::Args;
 use clap::Parser;
 use config::Config;
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     if args.list_audio {
@@ -20,5 +21,5 @@ fn main() -> anyhow::Result<()> {
     }
 
     let config = Config::from_args(&args)?;
-    App::new(config)?.run()
+    App::new(config).await?.run()
 }
