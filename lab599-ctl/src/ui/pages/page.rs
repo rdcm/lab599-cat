@@ -9,30 +9,7 @@ pub trait Page {
         &mut self,
         frame: &mut Frame,
         area: Rect,
-        app_state: &AppState,
+        app_state: &mut AppState,
         key: Option<KeyEvent>,
-    ) -> Option<Action>;
-}
-
-pub enum Action {
-    TuneStep(i8),
-    Tune(i64),
-    StepNext,
-    StepPrev,
-    ToggleMode,
-    ToggleFilter,
-    TogglePtt,
-    TogglePreamp,
-    ToggleAttenuator,
-    ToggleSplit,
-    ToggleCmr,
-    ToggleVox,
-    ToggleNr,
-    ToggleNb,
-    ToggleNotch,
-    ToggleMon,
-    ToggleDif,
-    ToggleDcSuppress,
-    BandUp,
-    BandDown,
+    );
 }

@@ -1,4 +1,4 @@
-use crate::ui::pages::page::Action;
+use crate::hardware::radio::Radio;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     style::{Color, Modifier, Style},
@@ -55,30 +55,36 @@ pub fn suppress_lo_spike(data: &mut [u64]) {
     }
 }
 
-pub fn map_key(key: KeyEvent) -> Option<Action> {
-    Some(match (key.code, key.modifiers) {
-        (KeyCode::Right, _) => Action::TuneStep(1),
-        (KeyCode::Left, _) => Action::TuneStep(-1),
-        (KeyCode::Up, _) => Action::StepNext,
-        (KeyCode::Down, _) => Action::StepPrev,
-        (KeyCode::PageUp, _) | (KeyCode::Char('+'), _) => Action::Tune(1_000_000),
-        (KeyCode::PageDown, _) | (KeyCode::Char('-'), _) => Action::Tune(-1_000_000),
-        (KeyCode::Char('m'), _) => Action::ToggleMode,
-        (KeyCode::Char('f'), _) => Action::ToggleFilter,
-        (KeyCode::Char('t'), _) => Action::TogglePtt,
-        (KeyCode::Char('p'), _) => Action::TogglePreamp,
-        (KeyCode::Char('a'), _) => Action::ToggleAttenuator,
-        (KeyCode::Char('s'), _) => Action::ToggleSplit,
-        (KeyCode::Char('c'), _) => Action::ToggleCmr,
-        (KeyCode::Char('v'), _) => Action::ToggleVox,
-        (KeyCode::Char('n'), _) => Action::ToggleNr,
-        (KeyCode::Char('b'), _) => Action::ToggleNb,
-        (KeyCode::Char('x'), _) => Action::ToggleNotch,
-        (KeyCode::Char('o'), _) => Action::ToggleMon,
-        (KeyCode::Char('d'), _) => Action::ToggleDif,
-        (KeyCode::Char('z'), _) => Action::ToggleDcSuppress,
-        (KeyCode::Char('['), _) => Action::BandDown,
-        (KeyCode::Char(']'), _) => Action::BandUp,
-        _ => return None,
-    })
+pub fn apply_key(key: KeyEvent, radio: &mut Radio) {
+    match (key.code, key.modifiers) {
+        (KeyCode::Right, _) => {
+            let d = radio.state().step.hz() as i64;
+            radio.tune(d);
+        }
+        (KeyCode::Left, _) => {
+            let d = radio.state().step.hz() as i64;
+            radio.tune(-d);
+        }
+        (KeyCode::Up, _) => radio.step_next(),
+        (KeyCode::Down, _) => radio.step_prev(),
+        (KeyCode::PageUp, _) | (KeyCode::Char('+'), _) => radio.tune(1_000_000),
+        (KeyCode::PageDown, _) | (KeyCode::Char('-'), _) => radio.tune(-1_000_000),
+        (KeyCode::Char('m'), _) => radio.toggle_mode(),
+        (KeyCode::Char('f'), _) => radio.toggle_filter(),
+        (KeyCode::Char('t'), _) => radio.toggle_ptt(),
+        (KeyCode::Char('p'), _) => radio.toggle_preamp(),
+        (KeyCode::Char('a'), _) => radio.toggle_attenuator(),
+        (KeyCode::Char('s'), _) => radio.toggle_split(),
+        (KeyCode::Char('c'), _) => radio.toggle_cmr(),
+        (KeyCode::Char('v'), _) => radio.toggle_vox(),
+        (KeyCode::Char('n'), _) => radio.toggle_nr(),
+        (KeyCode::Char('b'), _) => radio.toggle_nb(),
+        (KeyCode::Char('x'), _) => radio.toggle_notch(),
+        (KeyCode::Char('o'), _) => radio.toggle_mon(),
+        (KeyCode::Char('d'), _) => radio.toggle_dif(),
+        (KeyCode::Char('z'), _) => radio.toggle_dc_suppress(),
+        (KeyCode::Char('['), _) => radio.band_down(),
+        (KeyCode::Char(']'), _) => radio.band_up(),
+        _ => {}
+    }
 }
