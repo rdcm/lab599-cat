@@ -1,5 +1,5 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use ratatui::layout::{Constraint, Layout};
+use ratatui::widgets::{Block, Borders};
 use ratatui::Frame;
 
 use crate::app_state::AppState;
@@ -35,9 +35,8 @@ impl AppLayout {
             return;
         }
         self.app_bar.set_current(self.current);
-        let [bar_area, outlet] =
-            Layout::vertical([Constraint::Length(2), Constraint::Fill(1)]).areas(f.area());
-        self.app_bar.render(f, bar_area, state, None);
+        let outlet = Block::default().borders(Borders::ALL).inner(f.area());
+        self.app_bar.render(f, f.area(), state, None);
         if let Some((_, page)) = self.pages.get_mut(self.current) {
             page.render(f, outlet, state, key);
         }
