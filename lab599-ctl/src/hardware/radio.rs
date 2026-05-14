@@ -1,18 +1,9 @@
 use anyhow::Result;
-use lab599_cat::{CatDriver, MeterType};
+use lab599_cat::{CatDriver, MeterType, Mode};
 use serialport::SerialPort;
 
 use crate::hardware::radio_state::{Model, RadioState};
 use crate::hardware::serial::Serial;
-
-macro_rules! poll {
-    ($state:expr, $call:expr, $field:expr, $tag:literal) => {
-        match $call {
-            Ok(v) => $field = v,
-            Err(e) => $state.log_error(format!(concat!($tag, ": {}"), e)),
-        }
-    };
-}
 
 pub struct Radio {
     device: CatDriver<Box<dyn SerialPort>>,
@@ -34,6 +25,10 @@ impl Radio {
         &self.state
     }
 
+    pub fn state_mut(&mut self) -> &mut RadioState {
+        &mut self.state
+    }
+
     pub fn log_error(&mut self, msg: String) {
         self.state.log_error(msg);
     }
@@ -50,43 +45,85 @@ impl Radio {
         self.state.dc_suppress = !self.state.dc_suppress;
     }
 
-    pub fn tick(&mut self) {
-        let s = &mut self.state;
-        poll!(s, self.device.get_frequency_a(), s.frequency, "FA");
-        poll!(s, self.device.get_mode().map(Some), s.mode, "MD");
-        poll!(
-            s,
-            self.device.get_filter().map(|(rx, _)| rx),
-            s.filter,
-            "FL"
-        );
-        poll!(s, self.device.get_smeter(), s.smeter, "SM");
-        poll!(s, self.device.get_ptt(), s.ptt, "PT");
-        poll!(s, self.device.get_speech_compressor(), s.cmr, "PR");
-        poll!(s, self.device.get_preamp(), s.preamp, "PA");
-        poll!(s, self.device.get_attenuator(), s.attenuator, "RA");
-        poll!(s, self.device.get_split(), s.split, "SP");
-        poll!(s, self.device.get_vox(), s.vox, "VX");
-        poll!(s, self.device.get_noise_reduction(), s.nr, "NR");
-        poll!(s, self.device.get_noise_blanker(), s.nb, "NB");
-        poll!(s, self.device.get_notch(), s.notch, "NT");
-        poll!(
-            s,
-            self.device.get_monitor_mute().map(|muted| !muted),
-            s.mon,
-            "MO"
-        );
-        poll!(s, self.device.get_dsp_if(), s.dif, "IS");
-        poll!(s, self.device.get_power(), s.power, "PC");
-        poll!(s, self.device.get_af_gain(), s.af_gain, "AG");
-        poll!(s, self.device.get_voltage(), s.voltage, "VL");
-        poll!(s, self.device.get_busy(), s.busy, "BY");
+    pub fn get_frequency(&mut self) -> Result<u64> {
+        Ok(self.device.get_frequency_a()?)
+    }
 
-        if s.ptt {
-            poll!(s, self.device.get_meter(MeterType::Swr), s.swr, "RM");
-        } else {
-            s.swr = 0;
-        }
+    pub fn get_mode(&mut self) -> Result<Option<Mode>> {
+        Ok(Some(self.device.get_mode()?))
+    }
+
+    pub fn get_filter(&mut self) -> Result<u8> {
+        let (rx, _) = self.device.get_filter()?;
+        Ok(rx)
+    }
+
+    pub fn get_smeter(&mut self) -> Result<u16> {
+        Ok(self.device.get_smeter()?)
+    }
+
+    pub fn get_ptt(&mut self) -> Result<bool> {
+        Ok(self.device.get_ptt()?)
+    }
+
+    pub fn get_cmr(&mut self) -> Result<bool> {
+        Ok(self.device.get_speech_compressor()?)
+    }
+
+    pub fn get_preamp(&mut self) -> Result<bool> {
+        Ok(self.device.get_preamp()?)
+    }
+
+    pub fn get_attenuator(&mut self) -> Result<bool> {
+        Ok(self.device.get_attenuator()?)
+    }
+
+    pub fn get_split(&mut self) -> Result<bool> {
+        Ok(self.device.get_split()?)
+    }
+
+    pub fn get_vox(&mut self) -> Result<bool> {
+        Ok(self.device.get_vox()?)
+    }
+
+    pub fn get_nr(&mut self) -> Result<bool> {
+        Ok(self.device.get_noise_reduction()?)
+    }
+
+    pub fn get_nb(&mut self) -> Result<bool> {
+        Ok(self.device.get_noise_blanker()?)
+    }
+
+    pub fn get_notch(&mut self) -> Result<bool> {
+        Ok(self.device.get_notch()?)
+    }
+
+    pub fn get_mon(&mut self) -> Result<bool> {
+        Ok(!self.device.get_monitor_mute()?)
+    }
+
+    pub fn get_dif(&mut self) -> Result<bool> {
+        Ok(self.device.get_dsp_if()?)
+    }
+
+    pub fn get_power(&mut self) -> Result<u8> {
+        Ok(self.device.get_power()?)
+    }
+
+    pub fn get_af_gain(&mut self) -> Result<u16> {
+        Ok(self.device.get_af_gain()?)
+    }
+
+    pub fn get_voltage(&mut self) -> Result<u16> {
+        Ok(self.device.get_voltage()?)
+    }
+
+    pub fn get_busy(&mut self) -> Result<bool> {
+        Ok(self.device.get_busy()?)
+    }
+
+    pub fn get_swr(&mut self) -> Result<u16> {
+        Ok(self.device.get_meter(MeterType::Swr)?)
     }
 
     pub fn tune(&mut self, delta: i64) {

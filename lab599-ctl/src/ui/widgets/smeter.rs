@@ -6,8 +6,6 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
-use crate::hardware::radio_state::RadioState;
-
 const SMETER_TICKS: &[(&str, usize)] = &[
     ("1", 3),
     ("3", 6),
@@ -19,21 +17,12 @@ const SMETER_TICKS: &[(&str, usize)] = &[
     ("+60", 30),
 ];
 
-pub struct SmeterView {
-    smeter: u16,
-    label: &'static str,
+pub struct SmeterWidget {
+    pub(crate) smeter: u16,
+    pub(crate) label: &'static str,
 }
 
-impl From<&RadioState> for SmeterView {
-    fn from(s: &RadioState) -> Self {
-        Self {
-            smeter: s.smeter,
-            label: s.smeter_label(),
-        }
-    }
-}
-
-impl Widget for SmeterView {
+impl Widget for SmeterWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let inner_w = area.width.saturating_sub(2) as usize;
         if inner_w < 8 {

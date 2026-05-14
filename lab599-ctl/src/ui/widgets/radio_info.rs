@@ -6,36 +6,17 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
-use crate::hardware::radio_state::RadioState;
-
 pub struct RadioInfoWidget {
-    freq: String,
-    mode: &'static str,
-    step: &'static str,
-    filter: String,
-    ptt: bool,
-    power: u8,
-    voltage: String,
-    swr: String,
-    af_gain: u16,
-    audio: bool,
-}
-
-impl From<&RadioState> for RadioInfoWidget {
-    fn from(s: &RadioState) -> Self {
-        Self {
-            freq: s.freq_display(),
-            mode: s.mode_str(),
-            step: s.step.label(),
-            filter: s.filter_str(),
-            ptt: s.ptt,
-            power: s.power,
-            voltage: s.voltage_display(),
-            swr: s.swr_display(),
-            af_gain: s.af_gain,
-            audio: s.audio_active,
-        }
-    }
+    pub(crate) freq: String,
+    pub(crate) mode: &'static str,
+    pub(crate) step: &'static str,
+    pub(crate) filter: String,
+    pub(crate) ptt: bool,
+    pub(crate) power: u8,
+    pub(crate) voltage: String,
+    pub(crate) swr: String,
+    pub(crate) af_gain: u16,
+    pub(crate) audio: bool,
 }
 
 impl Widget for RadioInfoWidget {

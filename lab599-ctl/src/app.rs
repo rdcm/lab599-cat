@@ -3,16 +3,17 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 
 use crate::app_state::AppState;
+use crate::app_utils;
 use crate::config::Config;
 use crate::hardware::audio_builder::AudioBuilder;
 use crate::hardware::radio::Radio;
 use crate::hardware::serial::Serial;
 use crate::input::keyboard::{Keyboard, Quit};
-use crate::ui::router::Router;
+use crate::ui::layout::AppLayout;
 
 pub struct App {
     app_state: AppState,
-    router: Router,
+    layout: AppLayout,
     poll_interval: Duration,
 }
 
@@ -30,7 +31,6 @@ impl App {
         } else {
             AudioBuilder::new().with_loopback()
         }
-        .with_iq(config.iq_device.as_deref(), config.iq_rate)
         .build(|e| radio.log_error(e));
 
         let poll_interval = Duration::from_millis(config.poll_ms);
@@ -41,7 +41,7 @@ impl App {
                 audio,
                 _config: config,
             },
-            router: Router::new(),
+            layout: AppLayout::new(),
             poll_interval,
         })
     }
@@ -58,15 +58,17 @@ impl App {
 
     fn event_loop(&mut self, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
         let mut last_poll = Instant::now();
-        self.app_state.radio.tick();
+        app_utils::tick(&mut self.app_state.radio);
 
         loop {
             let page_key = Keyboard::read_key(50)?;
 
-            terminal.draw(|f| self.router.render(f, &mut self.app_state, page_key))?;
+            terminal.draw(|f| {
+                self.layout.render(f, &mut self.app_state, page_key);
+            })?;
 
             if last_poll.elapsed() >= self.poll_interval {
-                self.app_state.radio.tick();
+                app_utils::tick(&mut self.app_state.radio);
                 last_poll = Instant::now();
                 if let Ok(mut errs) = self.app_state.audio.errors().lock() {
                     for e in errs.drain(..) {

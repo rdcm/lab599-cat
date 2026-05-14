@@ -19,10 +19,6 @@ impl LogsPage {
 }
 
 impl Page for LogsPage {
-    fn name(&self) -> &'static str {
-        "Logs"
-    }
-
     fn render(
         &mut self,
         frame: &mut Frame,

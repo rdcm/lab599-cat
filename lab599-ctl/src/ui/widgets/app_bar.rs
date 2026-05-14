@@ -4,21 +4,18 @@ use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Widget},
-    Frame,
 };
 
-use crate::hardware::radio_state::RadioState;
-
-struct AppBarWidget {
+pub struct AppBarWidget {
     model: String,
     tabs: Vec<&'static str>,
     current: usize,
 }
 
 impl AppBarWidget {
-    fn new(state: &RadioState, tabs: &[&'static str], current: usize) -> Self {
+    pub fn new(model: String, tabs: &[&'static str], current: usize) -> Self {
         Self {
-            model: state.model.to_string(),
+            model,
             tabs: tabs.to_vec(),
             current,
         }
@@ -61,20 +58,5 @@ impl Widget for AppBarWidget {
             .title(model_title)
             .title(Line::from(tab_spans).right_aligned())
             .render(area, buf);
-    }
-}
-
-pub struct AppBar;
-
-impl AppBar {
-    pub fn render(
-        frame: &mut Frame,
-        state: &RadioState,
-        tabs: &[&'static str],
-        current: usize,
-    ) -> Rect {
-        let inner = Block::default().borders(Borders::ALL).inner(frame.area());
-        frame.render_widget(AppBarWidget::new(state, tabs, current), frame.area());
-        inner
     }
 }

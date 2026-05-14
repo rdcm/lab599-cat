@@ -4,7 +4,6 @@ use ratatui::{layout::Rect, Frame};
 use crate::app_state::AppState;
 
 pub trait Page {
-    fn name(&self) -> &'static str;
     fn render(
         &mut self,
         frame: &mut Frame,

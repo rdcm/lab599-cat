@@ -7,14 +7,30 @@ use ratatui::{
     widgets::{Block, Borders, Sparkline, Widget},
 };
 
-use crate::hardware::spectrum::{SpectrumBins, FFT_SIZE};
-use crate::ui::utils::suppress_lo_spike;
+use crate::ui::components::spectrum::processor::{SpectrumBins, FFT_SIZE};
+use crate::ui::ui_utils::suppress_lo_spike;
 
 pub struct SpectrumWidget {
-    pub bins: SpectrumBins,
-    pub sample_rate: u32,
-    pub is_stereo: Arc<Mutex<bool>>,
-    pub dc_suppress: bool,
+    bins: SpectrumBins,
+    sample_rate: u32,
+    is_stereo: Arc<Mutex<bool>>,
+    dc_suppress: bool,
+}
+
+impl SpectrumWidget {
+    pub fn new(
+        bins: SpectrumBins,
+        sample_rate: u32,
+        is_stereo: Arc<Mutex<bool>>,
+        dc_suppress: bool,
+    ) -> Self {
+        Self {
+            bins,
+            sample_rate,
+            is_stereo,
+            dc_suppress,
+        }
+    }
 }
 
 impl Widget for SpectrumWidget {

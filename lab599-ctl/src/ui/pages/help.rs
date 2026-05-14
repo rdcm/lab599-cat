@@ -25,10 +25,6 @@ impl HelpPage {
 }
 
 impl Page for HelpPage {
-    fn name(&self) -> &'static str {
-        "Help"
-    }
-
     fn render(
         &mut self,
         frame: &mut Frame,

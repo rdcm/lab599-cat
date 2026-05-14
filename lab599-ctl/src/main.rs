@@ -1,5 +1,6 @@
 mod app;
 mod app_state;
+mod app_utils;
 mod args;
 mod config;
 mod hardware;

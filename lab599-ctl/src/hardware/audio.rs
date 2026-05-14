@@ -5,7 +5,6 @@ use std::path::Path;
 use std::sync::mpsc::{self, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 
-use crate::hardware::spectrum::SpectrumBins;
 use anyhow::Result;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -24,51 +23,26 @@ pub struct Audio {
     _mode: Option<AudioMode>,
     _audio_in: Option<cpal::Stream>,
     _audio_out: Option<cpal::Stream>,
-    _iq_in: Option<cpal::Stream>,
-    iq_sample_rate: u32,
-    bins: Option<SpectrumBins>,
-    is_stereo: Option<Arc<Mutex<bool>>>,
     errors: Arc<Mutex<Vec<String>>>,
 }
 
 impl Audio {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         mode: Option<AudioMode>,
         audio_in: Option<cpal::Stream>,
         audio_out: Option<cpal::Stream>,
-        iq_in: Option<cpal::Stream>,
-        iq_sample_rate: u32,
-        bins: Option<SpectrumBins>,
-        is_stereo: Option<Arc<Mutex<bool>>>,
         errors: Arc<Mutex<Vec<String>>>,
     ) -> Self {
         Self {
             _mode: mode,
             _audio_in: audio_in,
             _audio_out: audio_out,
-            _iq_in: iq_in,
-            iq_sample_rate,
-            bins,
-            is_stereo,
             errors,
         }
     }
 
     pub fn errors(&self) -> &Arc<Mutex<Vec<String>>> {
         &self.errors
-    }
-
-    pub fn bins(&self) -> Option<&SpectrumBins> {
-        self.bins.as_ref()
-    }
-
-    pub fn is_stereo(&self) -> Option<&Arc<Mutex<bool>>> {
-        self.is_stereo.as_ref()
-    }
-
-    pub fn iq_sample_rate(&self) -> u32 {
-        self.iq_sample_rate
     }
 
     pub fn list_devices() {

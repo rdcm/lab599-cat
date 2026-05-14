@@ -1,6 +1,6 @@
 use crossterm::event::KeyEvent;
 use ratatui::{
-    layout::{Layout, Rect},
+    layout::{Constraint, Layout, Rect},
     Frame,
 };
 
@@ -9,9 +9,9 @@ use crate::app_state::AppState;
 use crate::ui::components::component::Component;
 use crate::ui::components::radio_info::RadioInfoComponent;
 use crate::ui::components::smeter::SmeterComponent;
-use crate::ui::components::spectrum::SpectrumComponent;
+use crate::ui::components::spectrum::component::SpectrumComponent;
 use crate::ui::components::status_flags::StatusFlagsComponent;
-use crate::ui::utils::apply_key;
+use crate::ui::ui_utils::apply_key;
 
 pub struct MainPage {
     info: RadioInfoComponent,
@@ -32,10 +32,6 @@ impl MainPage {
 }
 
 impl Page for MainPage {
-    fn name(&self) -> &'static str {
-        "Main"
-    }
-
     fn render(
         &mut self,
         frame: &mut Frame,
@@ -43,11 +39,12 @@ impl Page for MainPage {
         app_state: &mut AppState,
         key: Option<KeyEvent>,
     ) {
+        let spectrum_height = if self.spectrum.is_active() { 10 } else { 0 };
         let areas = Layout::vertical([
-            self.info.constraint(),
-            self.smeter.constraint(),
-            self.flags.constraint(),
-            self.spectrum.constraint(),
+            Constraint::Length(9),
+            Constraint::Length(4),
+            Constraint::Length(4),
+            Constraint::Length(spectrum_height),
         ])
         .split(area);
 

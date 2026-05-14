@@ -6,38 +6,18 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
-use crate::hardware::radio_state::RadioState;
-
 pub struct StatusFlagsWidget {
-    preamp: bool,
-    attenuator: bool,
-    split: bool,
-    cmr: bool,
-    vox: bool,
-    mon: bool,
-    nr: bool,
-    nb: bool,
-    notch: bool,
-    dif: bool,
-    busy: bool,
-}
-
-impl From<&RadioState> for StatusFlagsWidget {
-    fn from(s: &RadioState) -> Self {
-        Self {
-            preamp: s.preamp,
-            attenuator: s.attenuator,
-            split: s.split,
-            cmr: s.cmr,
-            vox: s.vox,
-            mon: s.mon,
-            nr: s.nr,
-            nb: s.nb,
-            notch: s.notch,
-            dif: s.dif,
-            busy: s.busy,
-        }
-    }
+    pub(crate) preamp: bool,
+    pub(crate) attenuator: bool,
+    pub(crate) split: bool,
+    pub(crate) cmr: bool,
+    pub(crate) vox: bool,
+    pub(crate) mon: bool,
+    pub(crate) nr: bool,
+    pub(crate) nb: bool,
+    pub(crate) notch: bool,
+    pub(crate) dif: bool,
+    pub(crate) busy: bool,
 }
 
 impl Widget for StatusFlagsWidget {

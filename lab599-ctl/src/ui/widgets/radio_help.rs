@@ -5,16 +5,9 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
-use crate::hardware::radio_state::RadioState;
-use crate::ui::utils::entry;
+use crate::ui::ui_utils::entry;
 
 pub struct RadioHelpWidget;
-
-impl From<&RadioState> for RadioHelpWidget {
-    fn from(_: &RadioState) -> Self {
-        Self
-    }
-}
 
 impl Widget for RadioHelpWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {

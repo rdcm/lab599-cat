@@ -2,16 +2,12 @@ use crate::app_state::AppState;
 use crate::ui::components::component::Component;
 use crate::ui::widgets::radio_info::RadioInfoWidget;
 use crossterm::event::KeyEvent;
-use ratatui::layout::{Constraint, Rect};
+use ratatui::layout::Rect;
 use ratatui::Frame;
 
 pub struct RadioInfoComponent;
 
 impl Component for RadioInfoComponent {
-    fn constraint(&self) -> Constraint {
-        Constraint::Length(9)
-    }
-
     fn render(
         &mut self,
         frame: &mut Frame,

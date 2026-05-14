@@ -2,16 +2,12 @@ use crate::app_state::AppState;
 use crate::ui::components::component::Component;
 use crate::ui::widgets::radio_help::RadioHelpWidget;
 use crossterm::event::KeyEvent;
-use ratatui::layout::{Constraint, Rect};
+use ratatui::layout::Rect;
 use ratatui::Frame;
 
 pub struct RadioHelpComponent;
 
 impl Component for RadioHelpComponent {
-    fn constraint(&self) -> Constraint {
-        Constraint::Percentage(50)
-    }
-
     fn render(
         &mut self,
         frame: &mut Frame,

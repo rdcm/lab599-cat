@@ -5,19 +5,10 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
-use crate::hardware::radio_state::RadioState;
-use crate::ui::utils::entry;
+use crate::ui::ui_utils::entry;
 
 pub struct TuiHelpWidget {
-    dc_suppress: bool,
-}
-
-impl From<&RadioState> for TuiHelpWidget {
-    fn from(s: &RadioState) -> Self {
-        Self {
-            dc_suppress: s.dc_suppress,
-        }
-    }
+    pub(crate) dc_suppress: bool,
 }
 
 impl Widget for TuiHelpWidget {
