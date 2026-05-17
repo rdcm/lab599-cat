@@ -6,8 +6,8 @@ mod config;
 mod hardware;
 mod input;
 mod ui;
+mod util;
 
-use crate::hardware::audio::Audio;
 use app::App;
 use args::Args;
 use clap::Parser;
@@ -16,12 +16,6 @@ use config::Config;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-
-    if args.list_audio {
-        Audio::list_devices();
-        return Ok(());
-    }
-
     let config = Config::from_args(&args)?;
     App::new(config).await?.run()
 }

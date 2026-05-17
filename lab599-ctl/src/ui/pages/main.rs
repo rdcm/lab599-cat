@@ -1,4 +1,4 @@
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     Frame,
@@ -9,7 +9,6 @@ use crate::app_state::AppState;
 use crate::ui::components::component::Component;
 use crate::ui::components::radio_info::RadioInfoComponent;
 use crate::ui::components::smeter::SmeterComponent;
-use crate::ui::components::spectrum::component::SpectrumComponent;
 use crate::ui::components::status_flags::StatusFlagsComponent;
 use crate::ui::ui_utils::apply_key;
 
@@ -17,16 +16,14 @@ pub struct MainPage {
     info: RadioInfoComponent,
     smeter: SmeterComponent,
     flags: StatusFlagsComponent,
-    spectrum: SpectrumComponent,
 }
 
 impl MainPage {
-    pub fn new(spectrum: SpectrumComponent) -> Self {
+    pub fn new() -> Self {
         Self {
             info: RadioInfoComponent,
             smeter: SmeterComponent,
             flags: StatusFlagsComponent,
-            spectrum,
         }
     }
 }
@@ -39,7 +36,11 @@ impl Page for MainPage {
         app_state: &mut AppState,
         key: Option<KeyEvent>,
     ) {
-        let spectrum_height = if self.spectrum.is_active() { 10 } else { 0 };
+        let spectrum_height = if app_state.spectrum.is_active() {
+            10
+        } else {
+            0
+        };
         let areas = Layout::vertical([
             Constraint::Length(9),
             Constraint::Length(4),
@@ -51,10 +52,14 @@ impl Page for MainPage {
         self.info.render(frame, areas[0], app_state, None);
         self.smeter.render(frame, areas[1], app_state, None);
         self.flags.render(frame, areas[2], app_state, None);
-        self.spectrum.render(frame, areas[3], app_state, None);
+
+        let dc_suppress = app_state.radio.state().dc_suppress;
+        app_state.spectrum.render_to(frame, areas[3], dc_suppress);
 
         if let Some(k) = key {
-            apply_key(k, &mut app_state.radio)
+            if k.code != KeyCode::Char('i') {
+                apply_key(k, &mut app_state.radio);
+            }
         }
     }
 }

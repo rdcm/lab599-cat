@@ -11,27 +11,11 @@ pub struct Args {
     #[arg(short, long, default_value = "9600")]
     pub baud: u32,
 
-    /// Audio input device name (substring match, optional)
-    #[arg(short, long)]
-    pub audio: Option<String>,
-
-    /// List available audio input devices and exit
-    #[arg(long)]
-    pub list_audio: bool,
-
     /// Poll interval for CAT status in milliseconds
     #[arg(long, default_value = "200")]
     pub poll_ms: u64,
 
-    /// IQ input device name for spectrum display (substring match)
-    #[arg(long)]
-    pub iq_device: Option<String>,
-
-    /// IQ capture sample rate in Hz (44100–192000)
-    #[arg(long, default_value = "192000")]
-    pub iq_rate: u32,
-
-    /// Unix socket path for RX audio streaming (created when --audio is active)
+    /// Unix socket path for RX audio streaming
     #[arg(long, default_value = "/tmp/lab599-rx.sock")]
     pub rx_socket: std::path::PathBuf,
 }

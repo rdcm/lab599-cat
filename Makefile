@@ -24,12 +24,6 @@ lint:
 run:
 	./target/release/lab599
 
-run-iq:
-	./target/release/lab599 --iq-device "Sound Blaster Play! 3, USB Audio" --iq-rate 48000
-
-run-audio:
-	./target/release/lab599 --audio "PipeWire"
-
 # make remote-connect REMOTE_HOST=user@other-host RX_RATE=48000
 remote-connect:
 	@[ -n "$(REMOTE_HOST)" ] || { echo "error: REMOTE_HOST is required, e.g. make remote-connect REMOTE_HOST=user@host REMOTE_BIN=/path/to/lab599"; exit 1; }
@@ -38,9 +32,6 @@ remote-connect:
 
 remote-listen:
 	nc -U $(RX_SOCK) | aplay -f FLOAT_LE -r $(RX_RATE) -c 1
-
-list-audio:
-	./target/release/lab599 --list-audio
 
 find-port:
 	ls /dev/serial/by-id/ | grep -i ftdi | xargs -I{} readlink -f /dev/serial/by-id/{}

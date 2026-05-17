@@ -1,3 +1,4 @@
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
@@ -5,7 +6,7 @@ use anyhow::Result;
 use crate::app_state::AppState;
 use crate::app_utils;
 use crate::config::Config;
-use crate::hardware::audio_builder::AudioBuilder;
+use crate::hardware::audio::Audio;
 use crate::hardware::radio::Radio;
 use crate::hardware::serial::Serial;
 use crate::input::keyboard::{Keyboard, Quit};
@@ -15,7 +16,6 @@ use crate::ui::layout::AppLayout;
 pub struct App {
     app_state: AppState,
     layout: AppLayout,
-    poll_interval: Duration,
 }
 
 impl App {
@@ -25,39 +25,23 @@ impl App {
             .clone()
             .map_or_else(Serial::auto_detect_port, Ok)?;
 
-        let mut radio = Radio::new(&path, config.baud, config.audio_device.is_some()).await?;
+        let radio = Radio::new(&path, config.baud).await?;
 
-        let audio = if let Some(name) = config.audio_device.as_deref() {
-            AudioBuilder::new().with_remote(name, &config.rx_socket)
-        } else {
-            AudioBuilder::new().with_loopback()
-        }
-        .build(|e| radio.log_error(e));
-
-        // Initialize spectrum before ratatui::init() so that any CPAL/ALSA
-        // messages written to stderr don't corrupt the TUI display.
-        let spectrum = if let Some(device) = config.iq_device.as_deref() {
-            match SpectrumComponent::start(device, config.iq_rate, audio.errors().clone()) {
-                Ok(s) => s,
-                Err(e) => {
-                    radio.log_error(format!("Spectrum: {e}"));
-                    SpectrumComponent::inactive()
-                }
-            }
-        } else {
-            SpectrumComponent::inactive()
-        };
+        let errors: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+        let audio = Audio::new(errors, config.rx_socket);
 
         let poll_interval = Duration::from_millis(config.poll_ms);
+        let layout = AppLayout::new(config.baud, config.poll_ms);
 
         Ok(Self {
             app_state: AppState {
                 radio,
                 audio,
-                _config: config,
+                spectrum: SpectrumComponent::inactive(),
+                iq_rate: 48_000,
+                poll_interval,
             },
-            layout: AppLayout::new(spectrum),
-            poll_interval,
+            layout,
         })
     }
 
@@ -84,7 +68,7 @@ impl App {
                 })?;
             }
 
-            if last_poll.elapsed() >= self.poll_interval {
+            if last_poll.elapsed() >= self.app_state.poll_interval {
                 app_utils::tick(&mut self.app_state.radio);
                 last_poll = Instant::now();
                 if let Ok(mut errs) = self.app_state.audio.errors().lock() {

@@ -8,17 +8,45 @@ use crate::hardware::serial::Serial;
 pub struct Radio {
     device: CatDriver<Box<dyn SerialPort>>,
     state: RadioState,
+    active_port: String,
+    active_baud: u32,
 }
 
 impl Radio {
-    pub async fn new(path: &str, baud: u32, audio_active: bool) -> Result<Self> {
+    pub async fn new(path: &str, baud: u32) -> Result<Self> {
         let mut device = CatDriver::new(Serial::open_port(path, baud).await?);
         let state = RadioState {
             model: device.get_id().map(Model::from).unwrap_or_default(),
-            audio_active,
             ..Default::default()
         };
-        Ok(Self { device, state })
+        let active_port = Self::resolve_port(path);
+        Ok(Self {
+            device,
+            state,
+            active_port,
+            active_baud: baud,
+        })
+    }
+
+    pub fn active_port(&self) -> &str {
+        &self.active_port
+    }
+
+    /// Reconnect to the current port with a new baud rate. Blocks for ~200 ms
+    /// while the FTDI chip stabilises — call outside of terminal.draw().
+    pub fn reconnect_blocking(&mut self, baud: u32) -> Result<()> {
+        let port = Serial::open_port_blocking(&self.active_port, baud)?;
+        self.device = CatDriver::new(port);
+        self.active_baud = baud;
+        self.state.model = self.device.get_id().map(Model::from).unwrap_or_default();
+        Ok(())
+    }
+
+    fn resolve_port(path: &str) -> String {
+        std::fs::canonicalize(path)
+            .ok()
+            .and_then(|p| p.into_os_string().into_string().ok())
+            .unwrap_or_else(|| path.to_string())
     }
 
     pub fn state(&self) -> &RadioState {

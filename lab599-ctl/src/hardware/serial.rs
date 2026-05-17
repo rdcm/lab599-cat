@@ -6,6 +6,20 @@ use serialport::SerialPort;
 pub struct Serial;
 
 impl Serial {
+    /// Blocking variant of open_port — identical behaviour but uses std::thread::sleep
+    /// instead of tokio::time::sleep. Safe to call from a sync context.
+    pub fn open_port_blocking(path: &str, baud: u32) -> Result<Box<dyn SerialPort>> {
+        let port = serialport::new(path, baud)
+            .timeout(Duration::from_millis(2000))
+            .open()
+            .with_context(|| format!("Cannot open serial port {path}"))?;
+        port.clear(serialport::ClearBuffer::All)
+            .with_context(|| "Cannot clear serial port buffer")?;
+        std::thread::sleep(Duration::from_millis(200));
+        port.clear(serialport::ClearBuffer::Input)?;
+        Ok(port)
+    }
+
     /// TX-500 uses FTDI FT232R (VID 0x0403, PID 0x6001).
     /// Prefers stable /dev/serial/by-id/ symlinks; falls back to VID/PID scan.
     pub fn auto_detect_port() -> Result<String> {

@@ -5,11 +5,10 @@ use ratatui::Frame;
 use crate::app_state::AppState;
 use crate::ui::components::app_bar::AppBarComponent;
 use crate::ui::components::component::Component;
-use crate::ui::components::spectrum::component::SpectrumComponent;
 use crate::ui::pages::page::Page;
-use crate::ui::pages::{help::HelpPage, logs::LogsPage, main::MainPage};
+use crate::ui::pages::{help::HelpPage, logs::LogsPage, main::MainPage, settings::SettingsPage};
 
-const LOGS_PAGE: usize = 2;
+const LOGS_PAGE: usize = 3;
 
 pub struct AppLayout {
     app_bar: AppBarComponent,
@@ -20,9 +19,13 @@ pub struct AppLayout {
 }
 
 impl AppLayout {
-    pub fn new(spectrum: SpectrumComponent) -> Self {
+    pub fn new(active_baud: u32, poll_ms: u64) -> Self {
         let pages: Vec<(&'static str, Box<dyn Page>)> = vec![
-            ("Main", Box::new(MainPage::new(spectrum))),
+            ("Main", Box::new(MainPage::new())),
+            (
+                "Settings",
+                Box::new(SettingsPage::new(active_baud, poll_ms)),
+            ),
             ("Help", Box::new(HelpPage::new())),
             ("Logs", Box::new(LogsPage::new())),
         ];
@@ -36,9 +39,6 @@ impl AppLayout {
         }
     }
 
-    /// Returns true when a redraw is needed.
-    /// For the Logs page this is only when the error list has grown.
-    /// All other pages always need a redraw (live data).
     pub fn needs_draw(&self, state: &AppState) -> bool {
         if self.page_needs_draw {
             return true;

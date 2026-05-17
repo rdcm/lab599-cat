@@ -14,34 +14,77 @@ pub const FFT_SIZE: usize = 2048;
 
 pub type SpectrumBins = Arc<Mutex<Vec<f32>>>;
 
+pub(crate) fn list_iq_devices() -> Vec<String> {
+    crate::util::suppress_stderr(|| {
+        let host = cpal::default_host();
+        let mut seen = std::collections::HashSet::new();
+        host.input_devices()
+            .map(|devs| {
+                devs.filter_map(|d| {
+                    let id = d.id().map(|i| i.to_string()).unwrap_or_default();
+                    if id.to_lowercase().contains("dsnoop") {
+                        return None;
+                    }
+                    let desc = d.description().map(|n| n.name().to_string()).ok()?;
+                    if desc.to_lowercase().contains("discard")
+                        || desc.to_lowercase().starts_with("default alsa output")
+                    {
+                        return None;
+                    }
+                    if seen.insert(desc.clone()) {
+                        Some(desc)
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+            })
+            .unwrap_or_default()
+    })
+}
+
 pub(crate) fn start_iq_stream(
     name: &str,
     sample_rate: u32,
     errors: Arc<Mutex<Vec<String>>>,
-) -> Result<(cpal::Stream, SpectrumBins, Arc<Mutex<bool>>)> {
-    let host = cpal::default_host();
-    let devices: Vec<cpal::Device> = host
-        .input_devices()
-        .map(|devs| {
-            devs.filter(|d| {
-                d.description()
-                    .map(|n| n.name().to_lowercase().contains(&name.to_lowercase()))
-                    .unwrap_or(false)
-            })
-            .collect()
-        })
-        .unwrap_or_default();
-    if devices.is_empty() {
-        anyhow::bail!("device not found: {name}");
-    }
-    let mut last_err = anyhow::anyhow!("no devices tried");
-    for dev in devices {
-        match build_iq_stream(dev, sample_rate, errors.clone()) {
-            Ok(result) => return Ok(result),
-            Err(e) => last_err = e,
-        }
-    }
-    Err(last_err)
+) -> Result<(cpal::Stream, SpectrumBins, Arc<Mutex<bool>>, String)> {
+    crate::util::capture_stderr(
+        || {
+            let host = cpal::default_host();
+            let candidates: Vec<cpal::Device> = host
+                .input_devices()
+                .map(|devs| {
+                    devs.filter(|d| {
+                        let id = d.id().map(|i| i.to_string()).unwrap_or_default();
+                        !id.to_lowercase().contains("dsnoop")
+                            && d.description()
+                                .map(|n| n.name().to_lowercase() == name.to_lowercase())
+                                .unwrap_or(false)
+                    })
+                    .collect()
+                })
+                .unwrap_or_default();
+
+            if candidates.is_empty() {
+                return Err(anyhow::anyhow!("device not found: {name}"));
+            }
+            let mut last_err = anyhow::anyhow!("no IQ-capable device found at {sample_rate} Hz");
+            for dev in candidates {
+                let desc = dev
+                    .description()
+                    .map(|d| d.name().to_string())
+                    .unwrap_or_else(|_| name.to_string());
+                match build_iq_stream(dev, sample_rate, errors.clone()) {
+                    Ok((stream, bins, is_stereo)) => {
+                        return Ok((stream, bins, is_stereo, desc));
+                    }
+                    Err(e) => last_err = e,
+                }
+            }
+            Err(last_err)
+        },
+        &errors,
+    )
 }
 
 fn build_iq_stream(
@@ -58,14 +101,13 @@ fn build_iq_stream(
                 && c.min_sample_rate() <= sample_rate
                 && c.max_sample_rate() >= sample_rate
         })
-        .min_by_key(|c| c.channels())
+        .max_by_key(|c| c.channels())
         .ok_or_else(|| anyhow::anyhow!("audio device has no config at {sample_rate} Hz"))?;
 
     let channels = cfg_range.channels() as usize;
     let is_stereo: Arc<Mutex<bool>> = Arc::new(Mutex::new(channels >= 2));
     let fmt = cfg_range.sample_format();
-    let mut config: StreamConfig = cfg_range.with_sample_rate(sample_rate).into();
-    config.buffer_size = cpal::BufferSize::Fixed(1024);
+    let config: StreamConfig = cfg_range.with_sample_rate(sample_rate).into();
 
     let stream = build_stream(
         &device,

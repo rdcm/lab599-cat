@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 use std::io::Write;
 use std::os::unix::net::UnixListener;
-use std::path::Path;
-use std::sync::mpsc::{self, SyncSender, TrySendError};
+use std::path::PathBuf;
+use std::sync::mpsc::{self, Sender, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
@@ -16,7 +16,17 @@ type Clients = Arc<Mutex<Vec<SyncSender<Vec<f32>>>>>;
 #[derive(Clone)]
 pub enum AudioMode {
     Loopback,
-    Remote,
+}
+
+// Dropping this signals the listener thread to exit within ~50 ms.
+struct RemoteHandle {
+    stop_tx: Sender<()>,
+}
+
+impl Drop for RemoteHandle {
+    fn drop(&mut self) {
+        let _ = self.stop_tx.send(());
+    }
 }
 
 pub struct Audio {
@@ -24,20 +34,24 @@ pub struct Audio {
     _audio_in: Option<cpal::Stream>,
     _audio_out: Option<cpal::Stream>,
     errors: Arc<Mutex<Vec<String>>>,
+    device_name: Option<String>,
+    rx_socket: PathBuf,
+    // Shared with the audio input callback; remote listener adds senders here.
+    clients: Clients,
+    _remote_handle: Option<RemoteHandle>,
 }
 
 impl Audio {
-    pub fn new(
-        mode: Option<AudioMode>,
-        audio_in: Option<cpal::Stream>,
-        audio_out: Option<cpal::Stream>,
-        errors: Arc<Mutex<Vec<String>>>,
-    ) -> Self {
+    pub fn new(errors: Arc<Mutex<Vec<String>>>, rx_socket: PathBuf) -> Self {
         Self {
-            _mode: mode,
-            _audio_in: audio_in,
-            _audio_out: audio_out,
+            _mode: None,
+            _audio_in: None,
+            _audio_out: None,
             errors,
+            device_name: None,
+            rx_socket,
+            clients: Arc::new(Mutex::new(Vec::new())),
+            _remote_handle: None,
         }
     }
 
@@ -45,15 +59,104 @@ impl Audio {
         &self.errors
     }
 
-    pub fn list_devices() {
-        let host = cpal::default_host();
-        println!("Available audio input devices:");
-        if let Ok(devices) = host.input_devices() {
-            for d in devices {
-                if let Ok(name) = d.description() {
-                    println!("  {name}");
+    pub fn is_active(&self) -> bool {
+        self._audio_in.is_some()
+    }
+
+    pub fn is_remote_active(&self) -> bool {
+        self._remote_handle.is_some()
+    }
+
+    pub fn active_device(&self) -> Option<&str> {
+        self.device_name.as_deref()
+    }
+
+    pub fn rx_socket_path(&self) -> &str {
+        self.rx_socket.to_str().unwrap_or("")
+    }
+
+    pub fn start_loopback(&mut self, device_name: &str) -> Result<()> {
+        self.stop_audio();
+
+        let device = Self::resolve_device(Some(device_name))
+            .ok_or_else(|| anyhow::anyhow!("audio device not found: {device_name}"))?;
+
+        let (audio_in, audio_out) = crate::util::capture_stderr(
+            || Self::build_loopback(device, self.clients.clone(), self.errors.clone()),
+            &self.errors,
+        )?;
+
+        self._audio_in = Some(audio_in);
+        self._audio_out = Some(audio_out);
+        self._mode = Some(AudioMode::Loopback);
+        self.device_name = Some(device_name.to_string());
+        Ok(())
+    }
+
+    pub fn stop_audio(&mut self) {
+        struct SendStream {
+            _s: cpal::Stream,
+        }
+        unsafe impl Send for SendStream {}
+        if let Some(s) = self._audio_in.take() {
+            std::thread::spawn(move || drop(SendStream { _s: s }));
+        }
+        if let Some(s) = self._audio_out.take() {
+            std::thread::spawn(move || drop(SendStream { _s: s }));
+        }
+        self._mode = None;
+        self.device_name = None;
+        // Audio gone → remote has nothing to forward.
+        self.stop_remote();
+    }
+
+    pub fn start_remote(&mut self) -> Result<()> {
+        if self._remote_handle.is_some() {
+            return Ok(());
+        }
+        let _ = std::fs::remove_file(&self.rx_socket);
+        let listener = UnixListener::bind(&self.rx_socket)?;
+        listener.set_nonblocking(true)?;
+
+        let (stop_tx, stop_rx) = mpsc::channel::<()>();
+        let clients = self.clients.clone();
+
+        std::thread::spawn(move || loop {
+            match listener.accept() {
+                Ok((mut socket, _)) => {
+                    let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(32);
+                    if let Ok(mut c) = clients.lock() {
+                        c.push(tx);
+                    }
+                    std::thread::spawn(move || {
+                        for chunk in rx {
+                            for sample in chunk {
+                                if socket.write_all(&sample.to_le_bytes()).is_err() {
+                                    return;
+                                }
+                            }
+                        }
+                    });
                 }
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    if stop_rx.try_recv().is_ok() {
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+                Err(_) => break,
             }
+        });
+
+        self._remote_handle = Some(RemoteHandle { stop_tx });
+        Ok(())
+    }
+
+    pub fn stop_remote(&mut self) {
+        self._remote_handle = None; // Drop sends stop signal; thread exits within ~50 ms.
+        let _ = std::fs::remove_file(&self.rx_socket);
+        if let Ok(mut c) = self.clients.lock() {
+            c.clear();
         }
     }
 
@@ -62,54 +165,18 @@ impl Audio {
         match name_pattern {
             Some(pattern) => host.input_devices().ok()?.find(|d| {
                 d.description()
-                    .map(|n| n.name().to_lowercase().contains(&pattern.to_lowercase()))
+                    .map(|n| n.name().to_lowercase() == pattern.to_lowercase())
                     .unwrap_or(false)
             }),
             None => host.default_input_device(),
         }
     }
 
-    pub(super) fn build_transport(
-        device_name: Option<&str>,
-        rx_socket: Option<&Path>,
-        mode: &AudioMode,
-        errors: Arc<Mutex<Vec<String>>>,
-    ) -> Result<(cpal::Stream, Option<cpal::Stream>)> {
-        let label = device_name.unwrap_or("default");
-        let device = Self::resolve_device(device_name)
-            .ok_or_else(|| anyhow::anyhow!("audio device not found: {label}"))?;
-        let clients: Clients = Arc::new(Mutex::new(Vec::new()));
-
-        let (input, output, sample_rate) = match mode {
-            AudioMode::Loopback => {
-                let (i, o, sr) = Self::build_loopback(device, clients.clone(), errors)?;
-                (i, Some(o), sr)
-            }
-            AudioMode::Remote => {
-                let (i, sr) = Self::build_input_only(device, clients.clone(), errors)?;
-                (i, None, sr)
-            }
-        };
-
-        if let Some(socket) = rx_socket {
-            match Self::start_rx_socket(socket, clients) {
-                Ok(()) => eprintln!(
-                    "RX socket: {0}\n  → nc -U {0} | aplay -f FLOAT_LE -r {1} -c 1",
-                    socket.display(),
-                    sample_rate,
-                ),
-                Err(e) => eprintln!("RX socket error: {e}"),
-            }
-        }
-
-        Ok((input, output))
-    }
-
     fn build_loopback(
         input_device: cpal::Device,
         clients: Clients,
         errors: Arc<Mutex<Vec<String>>>,
-    ) -> Result<(cpal::Stream, cpal::Stream, u32)> {
+    ) -> Result<(cpal::Stream, cpal::Stream)> {
         let host = cpal::default_host();
         let output_device = host
             .default_output_device()
@@ -118,7 +185,6 @@ impl Audio {
         let in_cfg = input_device.default_input_config()?;
         let out_cfg = output_device.default_output_config()?;
 
-        let sample_rate = in_cfg.sample_rate();
         let in_channels = in_cfg.channels() as usize;
 
         let buf: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
@@ -186,83 +252,7 @@ impl Audio {
         input_stream.play()?;
         output_stream.play()?;
 
-        Ok((input_stream, output_stream, sample_rate))
-    }
-
-    fn build_input_only(
-        input_device: cpal::Device,
-        clients: Clients,
-        errors: Arc<Mutex<Vec<String>>>,
-    ) -> Result<(cpal::Stream, u32)> {
-        let in_cfg = input_device.default_input_config()?;
-        let sample_rate = in_cfg.sample_rate();
-        let in_channels = in_cfg.channels() as usize;
-
-        let make_err = {
-            let errors = errors.clone();
-            move || {
-                let errs = errors.clone();
-                move |e: cpal::StreamError| {
-                    if let Ok(mut q) = errs.lock() {
-                        q.push(e.to_string());
-                    }
-                }
-            }
-        };
-
-        let input_stream = match in_cfg.sample_format() {
-            SampleFormat::F32 => input_device.build_input_stream(
-                &in_cfg.into(),
-                move |data: &[f32], _| {
-                    Self::broadcast(&Self::downmix_f32(data, in_channels), &clients)
-                },
-                make_err(),
-                None,
-            )?,
-            SampleFormat::I16 => input_device.build_input_stream(
-                &in_cfg.into(),
-                move |data: &[i16], _| {
-                    Self::broadcast(&Self::downmix_i16(data, in_channels), &clients)
-                },
-                make_err(),
-                None,
-            )?,
-            SampleFormat::U16 => input_device.build_input_stream(
-                &in_cfg.into(),
-                move |data: &[u16], _| {
-                    Self::broadcast(&Self::downmix_u16(data, in_channels), &clients)
-                },
-                make_err(),
-                None,
-            )?,
-            _ => anyhow::bail!("unsupported input sample format"),
-        };
-
-        input_stream.play()?;
-        Ok((input_stream, sample_rate))
-    }
-
-    fn start_rx_socket(path: &Path, clients: Clients) -> Result<()> {
-        let _ = std::fs::remove_file(path);
-        let listener = UnixListener::bind(path)?;
-
-        std::thread::spawn(move || {
-            for mut socket in listener.incoming().flatten() {
-                let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(32);
-                clients.lock().unwrap().push(tx);
-                std::thread::spawn(move || {
-                    for chunk in rx {
-                        for sample in chunk {
-                            if socket.write_all(&sample.to_le_bytes()).is_err() {
-                                return;
-                            }
-                        }
-                    }
-                });
-            }
-        });
-
-        Ok(())
+        Ok((input_stream, output_stream))
     }
 
     fn broadcast(mono: &[f32], clients: &Mutex<Vec<SyncSender<Vec<f32>>>>) {
