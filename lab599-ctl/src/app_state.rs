@@ -1,13 +1,11 @@
-use std::time::Duration;
-
+use crate::app_config::AppConfig;
 use crate::hardware::audio::Audio;
 use crate::hardware::radio::Radio;
-use crate::ui::components::spectrum::component::SpectrumComponent;
+use crate::services::spectrum::Spectrum;
 
 pub struct AppState {
     pub radio: Radio,
     pub audio: Audio,
-    pub spectrum: SpectrumComponent,
-    pub iq_rate: u32,
-    pub poll_interval: Duration,
+    pub spectrum: Spectrum,
+    pub config: AppConfig,
 }

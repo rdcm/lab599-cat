@@ -11,88 +11,123 @@ use cpal::{
 use rustfft::{num_complex::Complex, FftPlanner};
 
 pub const FFT_SIZE: usize = 2048;
+pub type Bins = Arc<Mutex<Vec<f32>>>;
 
-pub type SpectrumBins = Arc<Mutex<Vec<f32>>>;
-
-pub(crate) fn list_iq_devices() -> Vec<String> {
-    crate::app_utils::suppress_stderr(|| {
-        let host = cpal::default_host();
-        let mut seen = std::collections::HashSet::new();
-        host.input_devices()
-            .map(|devs| {
-                devs.filter_map(|d| {
-                    let id = d.id().map(|i| i.to_string()).unwrap_or_default();
-                    if id.to_lowercase().contains("dsnoop") {
-                        return None;
-                    }
-                    let desc = d.description().map(|n| n.name().to_string()).ok()?;
-                    if desc.to_lowercase().contains("discard")
-                        || desc.to_lowercase().starts_with("default alsa output")
-                    {
-                        return None;
-                    }
-                    if seen.insert(desc.clone()) {
-                        Some(desc)
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-            })
-            .unwrap_or_default()
-    })
+pub struct Spectrum {
+    _stream: Option<cpal::Stream>,
+    bins: Option<Bins>,
+    sample_rate: u32,
+    is_stereo: Option<Arc<Mutex<bool>>>,
+    device_name: Option<String>,
 }
 
-pub(crate) fn start_iq_stream(
+impl Spectrum {
+    pub fn new() -> Self {
+        Self {
+            _stream: None,
+            bins: None,
+            sample_rate: 0,
+            is_stereo: None,
+            device_name: None,
+        }
+    }
+
+    pub fn start(
+        &mut self,
+        device: &str,
+        rate: u32,
+        errors: Arc<Mutex<Vec<String>>>,
+    ) -> Result<()> {
+        let (stream, bins, is_stereo, name) = crate::app_utils::capture_stderr(
+            || open_stream(device, rate, errors.clone()),
+            &errors,
+        )?;
+        self._stream = Some(stream);
+        self.bins = Some(bins);
+        self.is_stereo = Some(is_stereo);
+        self.sample_rate = rate;
+        self.device_name = Some(name);
+        Ok(())
+    }
+
+    pub fn stop(&mut self) {
+        if let Some(stream) = self._stream.take() {
+            struct SendStream {
+                _s: cpal::Stream,
+            }
+            unsafe impl Send for SendStream {}
+            std::thread::spawn(move || drop(SendStream { _s: stream }));
+        }
+        self.bins = None;
+        self.is_stereo = None;
+        self.sample_rate = 0;
+        self.device_name = None;
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.bins.is_some()
+    }
+
+    pub fn bins(&self) -> Option<Bins> {
+        self.bins.clone()
+    }
+
+    pub fn is_stereo(&self) -> Option<Arc<Mutex<bool>>> {
+        self.is_stereo.clone()
+    }
+
+    pub fn sample_rate(&self) -> u32 {
+        self.sample_rate
+    }
+
+    pub fn device_name(&self) -> Option<&str> {
+        self.device_name.as_deref()
+    }
+}
+
+fn open_stream(
     name: &str,
     sample_rate: u32,
     errors: Arc<Mutex<Vec<String>>>,
-) -> Result<(cpal::Stream, SpectrumBins, Arc<Mutex<bool>>, String)> {
-    crate::app_utils::capture_stderr(
-        || {
-            let host = cpal::default_host();
-            let candidates: Vec<cpal::Device> = host
-                .input_devices()
-                .map(|devs| {
-                    devs.filter(|d| {
-                        let id = d.id().map(|i| i.to_string()).unwrap_or_default();
-                        !id.to_lowercase().contains("dsnoop")
-                            && d.description()
-                                .map(|n| n.name().to_lowercase() == name.to_lowercase())
-                                .unwrap_or(false)
-                    })
-                    .collect()
-                })
-                .unwrap_or_default();
+) -> Result<(cpal::Stream, Bins, Arc<Mutex<bool>>, String)> {
+    let host = cpal::default_host();
+    let candidates: Vec<cpal::Device> = host
+        .input_devices()
+        .map(|devs| {
+            devs.filter(|d| {
+                let id = d.id().map(|i| i.to_string()).unwrap_or_default();
+                !id.to_lowercase().contains("dsnoop")
+                    && d.description()
+                        .map(|n| n.name().to_lowercase() == name.to_lowercase())
+                        .unwrap_or(false)
+            })
+            .collect()
+        })
+        .unwrap_or_default();
 
-            if candidates.is_empty() {
-                return Err(anyhow::anyhow!("device not found: {name}"));
-            }
-            let mut last_err = anyhow::anyhow!("no IQ-capable device found at {sample_rate} Hz");
-            for dev in candidates {
-                let desc = dev
-                    .description()
-                    .map(|d| d.name().to_string())
-                    .unwrap_or_else(|_| name.to_string());
-                match build_iq_stream(dev, sample_rate, errors.clone()) {
-                    Ok((stream, bins, is_stereo)) => {
-                        return Ok((stream, bins, is_stereo, desc));
-                    }
-                    Err(e) => last_err = e,
-                }
-            }
-            Err(last_err)
-        },
-        &errors,
-    )
+    if candidates.is_empty() {
+        return Err(anyhow::anyhow!("device not found: {name}"));
+    }
+    let mut last_err = anyhow::anyhow!("no device usable at {sample_rate} Hz");
+    for dev in candidates {
+        let desc = dev
+            .description()
+            .map(|d| d.name().to_string())
+            .unwrap_or_else(|_| name.to_string());
+        match build_stream(dev, sample_rate, errors.clone()) {
+            Ok((stream, bins, is_stereo)) => return Ok((stream, bins, is_stereo, desc)),
+            Err(e) => last_err = e,
+        }
+    }
+    Err(last_err)
 }
 
-fn build_iq_stream(
+fn build_stream(
     device: cpal::Device,
     sample_rate: u32,
     errors: Arc<Mutex<Vec<String>>>,
-) -> Result<(cpal::Stream, SpectrumBins, Arc<Mutex<bool>>)> {
-    let bins: SpectrumBins = Arc::new(Mutex::new(vec![-100.0f32; FFT_SIZE]));
+) -> Result<(cpal::Stream, Bins, Arc<Mutex<bool>>)> {
+    let bins: Bins = Arc::new(Mutex::new(vec![-100.0f32; FFT_SIZE]));
 
     let cfg_range = device
         .supported_input_configs()?
@@ -102,14 +137,14 @@ fn build_iq_stream(
                 && c.max_sample_rate() >= sample_rate
         })
         .max_by_key(|c| c.channels())
-        .ok_or_else(|| anyhow::anyhow!("audio device has no config at {sample_rate} Hz"))?;
+        .ok_or_else(|| anyhow::anyhow!("no supported config at {sample_rate} Hz"))?;
 
     let channels = cfg_range.channels() as usize;
     let is_stereo: Arc<Mutex<bool>> = Arc::new(Mutex::new(channels >= 2));
     let fmt = cfg_range.sample_format();
     let config: StreamConfig = cfg_range.with_sample_rate(sample_rate).into();
 
-    let stream = build_stream(
+    let stream = build_callback(
         &device,
         &config,
         fmt,
@@ -123,12 +158,12 @@ fn build_iq_stream(
     Ok((stream, bins, is_stereo))
 }
 
-fn build_stream(
+fn build_callback(
     device: &cpal::Device,
     config: &StreamConfig,
     fmt: SampleFormat,
     channels: usize,
-    bins: SpectrumBins,
+    bins: Bins,
     is_stereo: Arc<Mutex<bool>>,
     errors: Arc<Mutex<Vec<String>>>,
 ) -> Result<cpal::Stream> {
@@ -152,45 +187,45 @@ fn build_stream(
 
     let stream = match fmt {
         SampleFormat::F32 => {
-            let mut proc = IqProcessor::new(bins, channels, is_stereo);
+            let mut sink = FftSink::new(bins, channels, is_stereo);
             device.build_input_stream(
                 config,
-                move |data: &[f32], _| proc.push(data),
+                move |data: &[f32], _| sink.push(data),
                 err_fn,
                 None,
             )?
         }
         SampleFormat::I16 => {
-            let mut proc = IqProcessor::new(bins, channels, is_stereo);
+            let mut sink = FftSink::new(bins, channels, is_stereo);
             device.build_input_stream(
                 config,
                 move |data: &[i16], _| {
                     let f: Vec<f32> = data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
-                    proc.push(&f);
+                    sink.push(&f);
                 },
                 err_fn,
                 None,
             )?
         }
         SampleFormat::I32 => {
-            let mut proc = IqProcessor::new(bins, channels, is_stereo);
+            let mut sink = FftSink::new(bins, channels, is_stereo);
             device.build_input_stream(
                 config,
                 move |data: &[i32], _| {
                     let f: Vec<f32> = data.iter().map(|&s| s as f32 / i32::MAX as f32).collect();
-                    proc.push(&f);
+                    sink.push(&f);
                 },
                 err_fn,
                 None,
             )?
         }
         SampleFormat::F64 => {
-            let mut proc = IqProcessor::new(bins, channels, is_stereo);
+            let mut sink = FftSink::new(bins, channels, is_stereo);
             device.build_input_stream(
                 config,
                 move |data: &[f64], _| {
                     let f: Vec<f32> = data.iter().map(|&s| s as f32).collect();
-                    proc.push(&f);
+                    sink.push(&f);
                 },
                 err_fn,
                 None,
@@ -202,26 +237,22 @@ fn build_stream(
     Ok(stream)
 }
 
-struct IqProcessor {
+struct FftSink {
     buf: Vec<f32>,
     channels: usize,
-    // Tracks whether both channels carry independent signal.
-    // Set to false when one channel is silent (PipeWire mono-in-stereo wrapper).
     real_stereo: bool,
-    fft: std::sync::Arc<dyn rustfft::Fft<f32>>,
+    fft: Arc<dyn rustfft::Fft<f32>>,
     hann: Vec<f32>,
     complex: Vec<Complex<f32>>,
-    bins: SpectrumBins,
-    pub is_stereo_flag: Arc<Mutex<bool>>,
-    // IIR DC blocker state (one per channel)
+    bins: Bins,
+    is_stereo_flag: Arc<Mutex<bool>>,
     dc_i: f32,
     dc_q: f32,
-    // Frequency-domain IQ imbalance coefficient (complex, Gram-Schmidt in freq domain)
     iq_mu: Complex<f32>,
 }
 
-impl IqProcessor {
-    fn new(bins: SpectrumBins, channels: usize, is_stereo_flag: Arc<Mutex<bool>>) -> Self {
+impl FftSink {
+    fn new(bins: Bins, channels: usize, is_stereo_flag: Arc<Mutex<bool>>) -> Self {
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(FFT_SIZE);
         let hann = (0..FFT_SIZE)
@@ -245,13 +276,11 @@ impl IqProcessor {
     }
 
     fn push(&mut self, data: &[f32]) {
-        // Detect PipeWire mono-wrapped-as-stereo: one channel silent.
         if self.channels >= 2 {
             let rms_i: f32 =
                 data.iter().step_by(2).map(|x| x * x).sum::<f32>() / (data.len() / 2) as f32;
             let rms_q: f32 = data.iter().skip(1).step_by(2).map(|x| x * x).sum::<f32>()
                 / (data.len() / 2) as f32;
-            // One channel is at least 20 dB quieter → not real IQ
             let was = self.real_stereo;
             self.real_stereo =
                 rms_i > 1e-10 && rms_q > 1e-10 && (rms_i / rms_q).max(rms_q / rms_i) < 100.0;
@@ -268,8 +297,6 @@ impl IqProcessor {
 
         while self.buf.len() >= FFT_SIZE * self.channels {
             if use_stereo {
-                // IIR DC blocker: α=0.9995 → time constant ~83 ms at 48 kHz.
-                // ch[0]=L=AUX Q (pin4), ch[1]=R=AUX I (pin5) per TX-500 cable wiring.
                 const DC_ALPHA: f32 = 0.995;
                 for (i, ch) in self.buf.chunks(2).take(FFT_SIZE).enumerate() {
                     let raw_i = ch.get(1).copied().unwrap_or(0.0);
@@ -282,7 +309,6 @@ impl IqProcessor {
                     };
                 }
             } else {
-                // Mono or pseudo-stereo: use only the live channel
                 let step = self.channels;
                 for (i, s) in self.buf.iter().step_by(step).take(FFT_SIZE).enumerate() {
                     self.complex[i] = Complex {
@@ -296,11 +322,6 @@ impl IqProcessor {
             self.fft.process(&mut self.complex);
 
             if use_stereo {
-                // Frequency-domain IQ imbalance correction.
-                // Model: Y[k] = X[k] + μ·conj(X[N-k])  (image at mirror bin due to I/Q mismatch).
-                // Estimate μ from spectral cross-correlation, then subtract the image.
-                // Weighted μ estimator: symmetric bin pairs (image candidates) get high weight;
-                // strongly asymmetric pairs (real signals) get near-zero weight to avoid bias.
                 const MU_ADAPT: f32 = 0.01;
                 let mut cross = Complex::<f32>::new(0.0, 0.0);
                 let mut power = 0.0f32;

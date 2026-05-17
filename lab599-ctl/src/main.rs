@@ -5,6 +5,7 @@ mod app_utils;
 mod args;
 mod hardware;
 mod input;
+mod services;
 mod ui;
 
 use app::App;

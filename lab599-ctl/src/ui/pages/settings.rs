@@ -1,11 +1,9 @@
-use std::time::Duration;
-
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{layout::Rect, Frame};
 
 use super::page::Page;
 use crate::app_state::AppState;
-use crate::ui::components::spectrum::processor;
+use crate::hardware::audio::Audio;
 use crate::ui::widgets::settings::SettingsWidget;
 
 const BAUD_RATES: [u32; 6] = [4_800, 9_600, 19_200, 38_400, 57_600, 115_200];
@@ -44,7 +42,7 @@ impl SettingsPage {
             .iter()
             .position(|&p| p == poll_ms)
             .unwrap_or(2);
-        let devices = processor::list_iq_devices();
+        let devices = Audio::list_devices();
         let iq_rate_idx = IQ_RATES.iter().position(|&r| r == 48_000).unwrap_or(1);
 
         Self {
@@ -59,7 +57,7 @@ impl SettingsPage {
     }
 
     fn refresh_devices(&mut self) {
-        self.devices = processor::list_iq_devices();
+        self.devices = Audio::list_devices();
         if self.audio_dev_idx >= self.devices.len() {
             self.audio_dev_idx = 0;
         }
@@ -129,7 +127,7 @@ impl Page for SettingsPage {
                             app_state.spectrum.stop();
                         } else if let Some(name) = self.devices.get(self.iq_dev_idx).cloned() {
                             let rate = IQ_RATES[self.iq_rate_idx];
-                            app_state.iq_rate = rate;
+                            app_state.config.iq_rate = rate;
                             let errors = app_state.audio.errors().clone();
                             if let Err(e) = app_state.spectrum.start(&name, rate, errors) {
                                 app_state.radio.log_error(format!("Spectrum: {e}"));
@@ -171,8 +169,7 @@ impl Page for SettingsPage {
                     }
                     ROW_CAT_POLL => {
                         Self::cycle_left(&mut self.poll_idx, POLL_INTERVALS.len());
-                        app_state.poll_interval =
-                            Duration::from_millis(POLL_INTERVALS[self.poll_idx]);
+                        app_state.config.poll_ms = POLL_INTERVALS[self.poll_idx];
                     }
                     _ => {}
                 },
@@ -192,8 +189,7 @@ impl Page for SettingsPage {
                     }
                     ROW_CAT_POLL => {
                         Self::cycle_right(&mut self.poll_idx, POLL_INTERVALS.len());
-                        app_state.poll_interval =
-                            Duration::from_millis(POLL_INTERVALS[self.poll_idx]);
+                        app_state.config.poll_ms = POLL_INTERVALS[self.poll_idx];
                     }
                     _ => {}
                 },
@@ -214,12 +210,7 @@ impl Page for SettingsPage {
             self.audio_dev().to_string()
         };
         let iq_device = if app_state.spectrum.is_active() {
-            app_state
-                .spectrum
-                .device_name
-                .as_deref()
-                .unwrap_or("—")
-                .to_string()
+            app_state.spectrum.device_name().unwrap_or("—").to_string()
         } else {
             self.iq_dev().to_string()
         };

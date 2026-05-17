@@ -11,6 +11,7 @@ use crate::ui::components::radio_info::RadioInfoComponent;
 use crate::ui::components::smeter::SmeterComponent;
 use crate::ui::components::status_flags::StatusFlagsComponent;
 use crate::ui::ui_utils::apply_key;
+use crate::ui::widgets::spectrum::SpectrumWidget;
 
 pub struct MainPage {
     info: RadioInfoComponent,
@@ -54,7 +55,19 @@ impl Page for MainPage {
         self.flags.render(frame, areas[2], app_state, None);
 
         let dc_suppress = app_state.radio.state().dc_suppress;
-        app_state.spectrum.render_to(frame, areas[3], dc_suppress);
+        if let (Some(bins), Some(is_stereo)) =
+            (app_state.spectrum.bins(), app_state.spectrum.is_stereo())
+        {
+            frame.render_widget(
+                SpectrumWidget::new(
+                    bins,
+                    app_state.spectrum.sample_rate(),
+                    is_stereo,
+                    dc_suppress,
+                ),
+                areas[3],
+            );
+        }
 
         if let Some(k) = key {
             if k.code != KeyCode::Char('i') {

@@ -10,7 +10,7 @@ use crate::hardware::audio::Audio;
 use crate::hardware::radio::Radio;
 use crate::hardware::serial::Serial;
 use crate::input::keyboard::{Keyboard, Quit};
-use crate::ui::components::spectrum::component::SpectrumComponent;
+use crate::services::spectrum::Spectrum;
 use crate::ui::layout::AppLayout;
 
 pub struct App {
@@ -28,18 +28,16 @@ impl App {
         let radio = Radio::new(&path, config.baud).await?;
 
         let errors: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
-        let audio = Audio::new(errors, config.rx_socket);
+        let audio = Audio::new(errors, config.rx_socket.clone());
 
-        let poll_interval = Duration::from_millis(config.poll_ms);
         let layout = AppLayout::new(config.baud, config.poll_ms);
 
         Ok(Self {
             app_state: AppState {
                 radio,
                 audio,
-                spectrum: SpectrumComponent::inactive(),
-                iq_rate: 48_000,
-                poll_interval,
+                spectrum: Spectrum::new(),
+                config,
             },
             layout,
         })
@@ -68,7 +66,7 @@ impl App {
                 })?;
             }
 
-            if last_poll.elapsed() >= self.app_state.poll_interval {
+            if last_poll.elapsed() >= Duration::from_millis(self.app_state.config.poll_ms) {
                 app_utils::tick(&mut self.app_state.radio);
                 last_poll = Instant::now();
                 if let Ok(mut errs) = self.app_state.audio.errors().lock() {

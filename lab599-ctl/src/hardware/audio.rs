@@ -55,6 +55,35 @@ impl Audio {
         }
     }
 
+    pub fn list_devices() -> Vec<String> {
+        crate::app_utils::suppress_stderr(|| {
+            let host = cpal::default_host();
+            let mut seen = std::collections::HashSet::new();
+            host.input_devices()
+                .map(|devs| {
+                    devs.filter_map(|d| {
+                        let id = d.id().map(|i| i.to_string()).unwrap_or_default();
+                        if id.to_lowercase().contains("dsnoop") {
+                            return None;
+                        }
+                        let name = d.description().map(|n| n.name().to_string()).ok()?;
+                        if name.to_lowercase().contains("discard")
+                            || name.to_lowercase().starts_with("default alsa output")
+                        {
+                            return None;
+                        }
+                        if seen.insert(name.clone()) {
+                            Some(name)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+                })
+                .unwrap_or_default()
+        })
+    }
+
     pub fn errors(&self) -> &Arc<Mutex<Vec<String>>> {
         &self.errors
     }

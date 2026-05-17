@@ -9,6 +9,7 @@ pub struct AppConfig {
     pub baud: u32,
     pub rx_socket: PathBuf,
     pub poll_ms: u64,
+    pub iq_rate: u32,
 }
 
 impl AppConfig {
@@ -18,6 +19,7 @@ impl AppConfig {
             baud: args.baud,
             rx_socket: args.rx_socket.clone(),
             poll_ms: args.poll_ms,
+            iq_rate: 48_000,
         })
     }
 }

@@ -100,7 +100,7 @@ impl Widget for SettingsWidget {
             Line::from(""),
             // ── Audio Monitor ──────────────────────────────────
             Line::from(vec![
-                Span::styled("  Audio Monitor   ", focused(0)),
+                Span::styled("  RX Mode         ", focused(0)),
                 Span::styled(audio_txt, audio_s),
             ]),
             selector_line(
