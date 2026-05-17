@@ -21,12 +21,12 @@ pub struct MainPage {
 }
 
 impl MainPage {
-    pub fn new() -> Self {
+    pub fn new(spectrum: SpectrumComponent) -> Self {
         Self {
             info: RadioInfoComponent,
             smeter: SmeterComponent,
             flags: StatusFlagsComponent,
-            spectrum: SpectrumComponent::new(),
+            spectrum,
         }
     }
 }

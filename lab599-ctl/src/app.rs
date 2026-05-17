@@ -9,6 +9,7 @@ use crate::hardware::audio_builder::AudioBuilder;
 use crate::hardware::radio::Radio;
 use crate::hardware::serial::Serial;
 use crate::input::keyboard::{Keyboard, Quit};
+use crate::ui::components::spectrum::component::SpectrumComponent;
 use crate::ui::layout::AppLayout;
 
 pub struct App {
@@ -33,6 +34,20 @@ impl App {
         }
         .build(|e| radio.log_error(e));
 
+        // Initialize spectrum before ratatui::init() so that any CPAL/ALSA
+        // messages written to stderr don't corrupt the TUI display.
+        let spectrum = if let Some(device) = config.iq_device.as_deref() {
+            match SpectrumComponent::start(device, config.iq_rate, audio.errors().clone()) {
+                Ok(s) => s,
+                Err(e) => {
+                    radio.log_error(format!("Spectrum: {e}"));
+                    SpectrumComponent::inactive()
+                }
+            }
+        } else {
+            SpectrumComponent::inactive()
+        };
+
         let poll_interval = Duration::from_millis(config.poll_ms);
 
         Ok(Self {
@@ -41,7 +56,7 @@ impl App {
                 audio,
                 _config: config,
             },
-            layout: AppLayout::new(),
+            layout: AppLayout::new(spectrum),
             poll_interval,
         })
     }
@@ -63,9 +78,11 @@ impl App {
         loop {
             let page_key = Keyboard::read_key(50)?;
 
-            terminal.draw(|f| {
-                self.layout.render(f, &mut self.app_state, page_key);
-            })?;
+            if page_key.is_some() || self.layout.needs_draw(&self.app_state) {
+                terminal.draw(|f| {
+                    self.layout.render(f, &mut self.app_state, page_key);
+                })?;
+            }
 
             if last_poll.elapsed() >= self.poll_interval {
                 app_utils::tick(&mut self.app_state.radio);
