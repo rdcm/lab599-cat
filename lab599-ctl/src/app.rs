@@ -3,9 +3,9 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 
+use crate::app_config::AppConfig;
 use crate::app_state::AppState;
 use crate::app_utils;
-use crate::config::Config;
 use crate::hardware::audio::Audio;
 use crate::hardware::radio::Radio;
 use crate::hardware::serial::Serial;
@@ -19,7 +19,7 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(config: Config) -> Result<Self> {
+    pub async fn new(config: AppConfig) -> Result<Self> {
         let path = config
             .port
             .clone()

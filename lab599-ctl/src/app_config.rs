@@ -4,14 +4,14 @@ use anyhow::Result;
 
 use crate::args::Args;
 
-pub struct Config {
+pub struct AppConfig {
     pub port: Option<String>,
     pub baud: u32,
     pub rx_socket: PathBuf,
     pub poll_ms: u64,
 }
 
-impl Config {
+impl AppConfig {
     pub fn from_args(args: &Args) -> Result<Self> {
         Ok(Self {
             port: args.port.clone(),
