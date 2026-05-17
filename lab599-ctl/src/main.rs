@@ -6,7 +6,6 @@ mod config;
 mod hardware;
 mod input;
 mod ui;
-mod util;
 
 use app::App;
 use args::Args;

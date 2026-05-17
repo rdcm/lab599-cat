@@ -15,7 +15,7 @@ pub const FFT_SIZE: usize = 2048;
 pub type SpectrumBins = Arc<Mutex<Vec<f32>>>;
 
 pub(crate) fn list_iq_devices() -> Vec<String> {
-    crate::util::suppress_stderr(|| {
+    crate::app_utils::suppress_stderr(|| {
         let host = cpal::default_host();
         let mut seen = std::collections::HashSet::new();
         host.input_devices()
@@ -48,7 +48,7 @@ pub(crate) fn start_iq_stream(
     sample_rate: u32,
     errors: Arc<Mutex<Vec<String>>>,
 ) -> Result<(cpal::Stream, SpectrumBins, Arc<Mutex<bool>>, String)> {
-    crate::util::capture_stderr(
+    crate::app_utils::capture_stderr(
         || {
             let host = cpal::default_host();
             let candidates: Vec<cpal::Device> = host

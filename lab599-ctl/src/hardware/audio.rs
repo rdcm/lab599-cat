@@ -81,7 +81,7 @@ impl Audio {
         let device = Self::resolve_device(Some(device_name))
             .ok_or_else(|| anyhow::anyhow!("audio device not found: {device_name}"))?;
 
-        let (audio_in, audio_out) = crate::util::capture_stderr(
+        let (audio_in, audio_out) = crate::app_utils::capture_stderr(
             || Self::build_loopback(device, self.clients.clone(), self.errors.clone()),
             &self.errors,
         )?;
